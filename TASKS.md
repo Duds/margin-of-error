@@ -284,11 +284,13 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   `main`, `role="img"`/`<title>`/`<desc>` on every chart, no unfilled
   placeholder, no raw hex), but no third-party audit and no keyboard pass has
   been run.
-- **CI** — `tools/build.py --check` exists and passes, and is written for CI, but
-  there is no `.github/` workflow. Tests are stdlib `unittest` (no `pytest`
-  dependency), run via `python3 -m unittest discover -s tests` — 21 passing.
-  A `.gitignore` was added 2026-10-04, but that only suppresses `__pycache__`;
-  nothing runs these checks automatically yet.
+- **CI** — **DONE 2026-10-04.** `.github/workflows/ci.yml` runs on push and
+  pull request: `build.py --check`, the 30 geometry and guard-rail tests, and a
+  drift check confirming `index.html` matches its sources. No `pip install`, so
+  the guard on the page's accuracy has no supply chain to go stale. Python
+  pinned to 3.13 (the generators use PEP 604 unions, so 3.10 is the floor).
+  Verified by simulating each step locally, and the drift check was verified to
+  fail on both a hand-edited artefact and a stale template.
 - **Performance budget** — target LCP under 2.0s on a 4G connection. Fonts
   self-hosted, subset to the Latin subset used. **Budget raised to 400KB
   critical path, 2026-10-03.**
@@ -653,3 +655,21 @@ Append-only. Newest last.
   is a second thing to keep in sync with the artefact it describes.
   A chart claiming *both* is refused outright, since that is the shape that
   looks finished while citing nothing.
+- 2026-10-04 — **CI added, and two of my own bugs caught by testing the check
+  rather than writing it.** `.github/workflows/ci.yml` runs the build, the 30
+  tests and an `index.html` drift check on every push and PR. Stdlib only, no
+  `pip install`, because the point of locking the stack to Python stdlib was
+  that the thing guarding this page's accuracy has no dependency chain to rot.
+  Two defects worth recording, both in the guard rather than the page:
+  1. **The drift check could never fail.** It ran the build first, which
+     overwrites `index.html`, then diffed — so the drift was destroyed before
+     it was measured. It reported clean on a file that had been hand-edited.
+     Now it copies the committed file to a temp path first and diffs against
+     that. Both the hand-edit and stale-template cases are verified to fail it.
+  2. **A stray `</content>` tag landed in the workflow file**, caught because
+     the YAML was parsed rather than eyeballed. It would have failed every run.
+  The pattern across this session is the 0002 defect repeating: the checks were
+  pointed at generated SVG, so the placeholder prose shipped; the drift check
+  was pointed after the overwrite, so drift looked clean. In both cases the
+  assertion existed and had never been seen to fail. Testing that a guard fails
+  is now part of adding one.
