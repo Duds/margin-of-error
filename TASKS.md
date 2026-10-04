@@ -189,6 +189,16 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   > Eight tasks, ordered 1 to 8. **Note:** the `writing-plans` skill the
   > brainstorming skill names is not installed on this machine, so the plan was
   > written by hand against the spec rather than by that skill.
+  > **Two facts found while writing the plan against the live page, both of
+  > which the earlier note had wrong.** There are **two** election rows in the
+  > 2013-2022 discrete table, not one — the 2016 and 2019 federal elections —
+  > and the 2019 one sits *inside* the 2019 year group. So the exclusion rule has
+  > to match `\bElection\b` rather than counting rows, and 2019 yields **5 poll
+  > waves**, which is why the window is 5 and not 6. Also confirmed: **2017 is
+  > genuinely absent** from the table, not a parsing artefact — zero occurrences
+  > of the string anywhere in it. That was the one finding that could have
+  > invalidated the series range, so it was checked before anything was built.
+  >
   > **Expect CI to go red at plan Task 6 and stay red until task 0003 delivers
   > AEC figures.** That is the gate working, not a broken build, and the
   > assertion must not be loosened to make it green.
@@ -972,3 +982,27 @@ Append-only. Newest last.
   correct state, so the plan says so explicitly and forbids loosening the
   assertion to get a green tick. Ordered last among the code tasks for the same
   reason: a known, explained red build beats a surprise mid-implementation.
+- 2026-10-04 — **Implementation plan rewritten to the `writing-plans` skill's
+  format.** Dale supplied the skill after the first plan was written by hand.
+  The rewrite is not cosmetic; the skill's own self-review found four real
+  defects in the first version.
+  1. **No required header and no checkbox steps.** The skill mandates both, so
+     no task could be tracked or handed to an executor.
+  2. **Steps that decided nothing** — "mirroring the monthly ones", "edge cases"
+    are precisely the failure the skill names: an implementer cannot write one
+    reasonable thing from them. Replaced with named tests and their assertions.
+  3. **No `Files:` / `Interfaces:` blocks.** The skill's premise is that an
+    implementer sees only their own task, so the plan must state the names and
+    types neighbouring tasks use. Every task now carries both, with exact line
+    anchors into the files it modifies.
+  4. **Proportion.** At 2.08x the spec and 43% code blocks, the plan was writing
+    the program instead of the decisions. Now 1.78x and 21%, with test bodies
+    reduced to name-plus-assertion tables. **The one exception is the Task 6 gate
+    test class, kept in full and labelled as such** — those are the assertions
+    standing between a plausible wrong chart and publication, and a summary of
+    them is the wrong trade.
+  Two new sections the skill requires and the first plan lacked: **Global
+  Constraints** (the spec's project-wide rules, verbatim, applying to every task)
+  and **Review Focus** (five inputs the spec implies but no test exercised, each
+  pinned to the task owning the code). Those five are not hypothetical — four of
+  them are edge shapes found in the live Roy Morgan source during this rewrite.
