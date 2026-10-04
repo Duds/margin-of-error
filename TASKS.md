@@ -230,10 +230,27 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   > party, which limits a primary-only comparison and needs to be handled in
   > the chart specs.
 
-- **Right of reply to the party's registered address** — no contact on file.
-  > Need the party's registered address from its most recent AEC party
-  > registration statement. The AEC publishes these. Blocked until 0003
-  > surfaces it; do not guess an address from a news report.
+- **Right of reply: how to reach the party** — **AEC search done 2026-10-04,
+  address is not published. Now an editorial decision, not a research task.**
+  > The AEC was searched directly and the registered address is **not
+  > available** in any published form. `Party Returns.csv`, unpacked from the
+  > bulk `All-Annual-Data.zip`, carries financial columns and no address.
+  > Full URL-by-URL record in `docs/right-of-reply.md`.
+  > Three options, none of which should be chosen unilaterally:
+  > 1. **Write to the party's own published contact channel.** Fastest, and it
+  >    is the party's own published point rather than an address lifted from a
+  >    news report, which `TASKS.md` forbids. Leaves a gap against
+  >    non-negotiable 3, which asks for the **registered** address.
+  > 2. **Ask the AEC's party registration team** how a member of the public may
+  >    obtain a registered party's address. Short, specific, statutory hook.
+  >    Satisfies the standard as written.
+  > 3. **FOI request** for the registration statement. Slow, and the address is
+  >    the only thing needed.
+  > **Recommendation: 1 and 2 together.** Option 1 starts the clock now, option 2
+  > closes the gap in the standard. The clock under s 17 of the *Broadcasting
+  >    Services Act 1992* only starts when the claim is put to the party, so
+  >    delay is the real cost here, not the choice of channel.
+  > **This is the top publication blocker and needs Dale's decision.**
 - **Domain registration** — `marginoferror.com.au` appeared unregistered at
   > 2026-10-03 WHOIS check but is not held. Until it is purchased it is
   > available to anyone, including a hostile party. Treat as highest risk.
@@ -756,3 +773,31 @@ Append-only. Newest last.
   **Still open and not testable here: a physical A4 print.** No automated check
   can confirm the texture survives a greyscale laser or inkjet, so the item stays
   open until someone prints the page.
+- 2026-10-04 — **Right of reply: the AEC was searched and the address is not
+  published. The item changes from research to decision.** Task 0003 was
+  expected to surface the party's registered address incidentally; it does not.
+  Recorded URL by URL in `docs/right-of-reply.md`.
+  What was established: the live path is `Parties_and_Representatives`,
+  capitalised, and the lowercase `/parties/` paths return **HTTP 200 with a
+  "404 - Sauce not found" body** — the exact trap in `AGENTS.md` gotchas, hit
+  live, and the reason every fetch was validated on page title. The party
+  registration page carries requirements and forms but **no list of registered
+  parties**. The transparency register has no One Nation entry. The bulk
+  `All-Annual-Data.zip` (2.3MB, 13 files) was downloaded and `Party Returns.csv`
+  unpacked: its columns are Financial Year, Name, Party Group, Receipts,
+  Payments, Debts and Discretionary Benefits. **No address column.** The annual
+  returns carry financial disclosure only.
+  So the address sits on a registration statement the AEC holds and does not
+  publish. No address is recorded anywhere in this repo, because
+  `TASKS.md` `## BLOCKED` and `AGENTS.md` both forbid taking one from a news
+  report or a social profile, and inventing the appearance of compliance would
+  be worse than the open item.
+  **Framing worth stating plainly: the cost here is delay, not the choice of
+  channel.** The s 17 clock under the *Broadcasting Services Act 1992* only
+  starts when the claim is put to the party, so nothing has been started yet and
+  the item has been open since 2026-10-03. Three options are set out in
+  `docs/right-of-reply.md` with a recommendation to run two of them together:
+  write to the party's own published contact channel now, and ask the AEC's
+  party registration team how the public can obtain the registered address,
+  which is what closes the gap in non-negotiable 3.
+  **Needs Dale's decision. Not actionable by an agent.**
