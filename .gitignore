@@ -11,3 +11,7 @@ __pycache__/
 # Editor and OS noise.
 .DS_Store
 *.swp
+
+# Plan execution scratch: ledger, briefs, review packages. Git-ignored by
+# design; `git clean -fdx` destroys it, and progress is recovered from git log.
+.superpowers/
