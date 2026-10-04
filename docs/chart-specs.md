@@ -25,22 +25,54 @@ Applies to every chart below.
 
 ---
 
-## Chart 01 — The band
+## Chart 01 — The band, and where there isn't one
 
-**Provisional purpose.** The signature chart: the party's polling trajectory
-with its confidence intervals, against its actual result at each election.
+**Revised 2026-10-04** against the 0004 sourcing assessment. The original spec
+assumed every poll point carried a published margin. It does not.
 
-- **Question it answers:** how wide is the polling uncertainty band, and does the
-  result sit inside it?
-- **Data:** `polls` (fielded window, n, margin) and `aec` results by cycle.
-- **Form:** line of point estimates with a band, with election results marked as
-  discrete points on the same axis.
+- **Question it answers:** what did polling say, what did the ballot produce,
+  and how wide is the gap?
+- **Data:** `polls` (fielded window, n, margin, all nullable) and `aec` results
+  by cycle.
+- **Form:** line of point estimates against election results on the same axis,
+  where the interval is published the point carries the band and hatch, and
+  where it is not published the point carries the "no published margin"
+  marker instead.
+- **The marker.** A distinct, visible glyph at every poll point with a null
+  margin, in `--color-ink-muted`, plus a count in the caption: "N of M waves
+  publish no margin of error." The marker is not optional and not decorative.
+  It marks the edge of what the comparison can show, in the page's own voice.
+  It is not a claim about pollsters and must not be captioned as one.
+- **Must not:** impute a margin from an assumed sample size, ever. Not as a
+  default, not as a footnote, not as a "typical" value. A fabricated band is a
+  fabricated number in the visual language of honesty.
 - **Must not:** smooth the line, truncate the y-axis, or omit a cycle because it
   is inconvenient. Dropping an election is the single most dishonest thing this
   chart could do.
 - **The trap:** if the y-axis starts at 3%, the difference between a 4% poll and
   a 5.5% result inflates to fill the screen. Start at zero, or annotate the
   truncation explicitly and visibly.
+
+## Chart 05 — Withdrawn
+
+**Created 2026-10-03, withdrawn 2026-10-04.** Kept here so the reasoning is not
+re-litigated.
+
+The chart would have counted how many published polling waves carry a sample
+size and a margin of error, by house and by year. It was a chart about pollsters'
+disclosure practice.
+
+**Rejected.** It made the page a piece about the polling industry rather than
+about one party's measured support against its result. It is a different
+subject with a different set of people in it, and it invited the obvious
+rebuttal that plenty of pollsters do publish these figures, which would have
+left the page running a weaker version of an argument a critic could have run
+better. One publisher's metadata was never strong enough to carry that claim.
+
+The underlying fact is not discarded. It survives as a stated limit on the
+evidence, carried in Chart 01's caption and in the page's own voice. See "Where
+there is no band" in `DESIGN.md` and the Gotchas entry "Bands are honesty, not
+decoration" in `AGENTS.md`.
 
 ## Chart 02 — Seat margin
 

@@ -1,0 +1,420 @@
+/* Margin of Error — page shell
+ *
+ * Tokens only. Every value below is taken from DESIGN.md. No raw hex outside
+ * :root, no literal px outside the spacing table, no framework.
+ */
+
+/* ---------- Fonts ---------- */
+
+@font-face {
+  font-family: "Newsreader";
+  /* opsz cut carries wght 200-800 AND opsz 6-72 (default 18). Verified with
+     fontTools. It supersedes the wght-only cut, it is not an addition. */
+  src: url("../assets/fonts/newsreader-latin-opsz-normal.woff2")
+    format("woff2-variations");
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Newsreader";
+  src: url("../assets/fonts/newsreader-latin-opsz-italic.woff2")
+    format("woff2-variations");
+  font-weight: 200 800;
+  font-style: italic;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("../assets/fonts/ibm-plex-sans-latin-wght-normal.woff2")
+    format("woff2-variations");
+  font-weight: 100 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("../assets/fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("../assets/fonts/ibm-plex-mono-latin-500-normal.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ---------- Tokens ---------- */
+
+:root {
+  /* Colour */
+  --color-paper: #fbfaf7;
+  --color-paper-raised: #f2efe9;
+  --color-ink: #14110f;
+  --color-ink-muted: #6b6259;
+  --color-rule: #d8d2c8;
+  --color-accent: #2b4c7e;
+  --color-gain: #0f7b6c;
+  --color-loss: #c1443a;
+
+  /* Uncertainty */
+  --band-fill: rgba(20, 17, 15, 0.07);
+  --band-edge: var(--color-ink-muted);
+
+  /* Spacing, 4px base */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Type */
+  --face-display: "Newsreader", Georgia, serif;
+  --face-body: "IBM Plex Sans", system-ui, sans-serif;
+  --face-figure: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* Layout */
+  --measure: 66ch;
+  --track-prose: 720px;
+  --track-full: 1120px;
+  --hairline: 1px solid var(--color-rule);
+}
+
+/* ---------- Reset, minimal ---------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--face-body);
+  font-size: 18px;
+  line-height: 1.6;
+  /* Prose wants lower stroke contrast than a headline. */
+  font-variation-settings: "opsz" 14;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+/* ---------- Grid ---------- */
+
+/* One column by default, six from 640px, twelve from 960px. */
+.layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-8);
+  max-width: var(--track-full);
+  margin-inline: auto;
+  padding-inline: var(--space-5);
+}
+
+@media (min-width: 640px) {
+  .layout {
+    grid-template-columns: repeat(6, 1fr);
+    padding-inline: var(--space-6);
+  }
+}
+
+@media (min-width: 960px) {
+  .layout {
+    grid-template-columns: repeat(12, 1fr);
+  }
+}
+
+.col-prose,
+.col-full {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 960px) {
+  /* Prose sits in the centre six of twelve. */
+  .col-prose {
+    grid-column: 2 / 8;
+  }
+}
+
+/* ---------- Typography ---------- */
+
+h1,
+h2,
+h3 {
+  font-family: var(--face-display);
+  font-weight: 600;
+  line-height: 1.2;
+  margin-block: 0 var(--space-4);
+  text-wrap: balance;
+}
+
+h1 {
+  font-size: 2.5rem;
+  /* A headline is the case the optical axis exists for. */
+  font-variation-settings: "opsz" 60;
+}
+
+h2 {
+  font-size: 1.75rem;
+  font-variation-settings: "opsz" 32;
+}
+
+h3 {
+  font-size: 1.25rem;
+  font-variation-settings: "opsz" 20;
+}
+
+@media (min-width: 960px) {
+  h1 {
+    font-size: 3.25rem;
+    font-variation-settings: "opsz" 72;
+  }
+
+  h2 {
+    font-size: 2rem;
+    font-variation-settings: "opsz" 36;
+  }
+}
+
+p,
+ul,
+ol {
+  margin-block: 0 var(--space-5);
+}
+
+p {
+  max-width: var(--measure);
+}
+
+a {
+  color: var(--color-accent);
+  text-underline-offset: 2px;
+}
+
+/* Kicker and axis units only. Never for something a reader must read. */
+.kicker {
+  font-family: var(--face-figure);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+  margin-block: 0 var(--space-3);
+}
+
+.lede {
+  font-family: var(--face-display);
+  font-size: 1.25rem;
+  font-style: italic;
+  font-variation-settings: "opsz" 18;
+  max-width: var(--measure);
+  margin-block: 0 var(--space-8);
+}
+
+/* ---------- Figures ---------- */
+
+figure {
+  /* margin-block alone leaves the browser default 40px inline margins, which
+     pushed the figure past the viewport at 320px. Measured. */
+  margin: 0 0 var(--space-12);
+}
+
+figcaption {
+  font-size: 1rem;
+  color: var(--color-ink-muted);
+  max-width: var(--measure);
+  margin-block-start: var(--space-3);
+}
+
+/* A caption for a figure that lives outside the prose column. It keeps the
+   reading order (heading, prose, chart, caption, source) while the chart
+   itself takes the full breakout track. */
+.figure-caption {
+  font-size: 1rem;
+  color: var(--color-ink-muted);
+  max-width: var(--measure);
+  margin-block: var(--space-3) 0;
+}
+
+/* The source note is part of the figure, never collected into a footer. */
+.source-note {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--color-ink-muted);
+  border-top: var(--hairline);
+  padding-top: var(--space-2);
+  margin-block-start: var(--space-2);
+  max-width: var(--measure);
+}
+
+.source-note a {
+  color: var(--color-ink-muted);
+  text-decoration-thickness: 1px;
+  /* Long AEC URLs must not blow out the measure. */
+  overflow-wrap: anywhere;
+}
+
+/* Figures occupy their grid track regardless of what the chart inside does.
+
+   Load-bearing, and found by measuring in a browser rather than reading the
+   CSS. A <figure> is sized by its content, and an <svg> carrying only a
+   viewBox with no width attribute is a replaced element that falls back to the
+   300x150 default. The figure therefore collapsed to 185px inside a 285px
+   column, and 16px axis labels scaled to about 2.6px at a 320px viewport.
+
+   The fix is width: 100% on the figure, so the track sets the width and the
+   SVG resolves against it. The generator additionally emits an explicit
+   aspect-ratio, so the box always matches the viewBox. */
+.col-full {
+  width: 100%;
+  min-width: 0;
+}
+
+/* A generated SVG scales to any track with no JS. */
+.chart {
+  width: 100%;
+  height: auto;
+}
+
+/* Narrow chart variant.
+
+   A chart generator emits a second, narrower SVG for phones, because a 1120px
+   chart scaled into a 265px column renders 16px labels at about 3.8px. The
+   wide element is hidden below 640px and the narrow one is hidden above it.
+   The wide variant stays in the accessibility tree at every width, so a screen
+   reader always finds a chart. Breakpoint matches the grid change in DESIGN.md
+   and the width the narrow viewBox was tuned for (see task 0008). */
+figure .chart-narrow {
+  display: none;
+}
+
+@media (max-width: 639px) {
+  figure .chart-narrow {
+    display: block;
+  }
+
+  /* Hide only the wide sibling, never the narrow one. */
+  figure[data-chart] > .chart:not(.chart-narrow) {
+    display: none;
+  }
+}
+
+/* ---------- Focus ---------- */
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ---------- Motion ---------- */
+
+[data-motion] {
+  opacity: 0;
+  transition: opacity 240ms linear;
+}
+
+[data-motion][data-motion-state="shown"],
+[data-motion][data-motion-state="done"] {
+  opacity: 1;
+}
+
+[data-draw-path] {
+  transition: stroke-dashoffset 600ms linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-motion] {
+    opacity: 1;
+    transition: none;
+  }
+
+  [data-draw-path] {
+    transition: none;
+  }
+}
+
+/* ---------- Print ---------- */
+
+@media print {
+  :root {
+    --color-paper: #ffffff;
+    --color-paper-raised: #ffffff;
+  }
+
+  body {
+    font-size: 11pt;
+  }
+
+  /* Expand the hatch so a greyscale printer keeps the texture. */
+  svg {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Print the full URL, not just the source name. */
+  .source-note a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-family: var(--face-figure);
+    font-size: 8pt;
+    color: var(--color-ink-muted);
+    overflow-wrap: anywhere;
+  }
+
+  figure {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  [data-motion] {
+    opacity: 1;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 18mm 16mm;
+  }
+}

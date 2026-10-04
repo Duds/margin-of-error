@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-03
+updated: 2026-10-03 (band spec revised, see "Where there is no band")
 ---
 
 # DESIGN.md — Margin of Error
@@ -73,6 +73,33 @@ in forced-colours mode, and for readers who cannot distinguish the series hue.
 Where a band is too narrow to read as a texture, widen it or show the interval
 as a numeric label instead. Never omit the band to make a chart tidier.
 
+### Where there is no band
+
+Revised 2026-10-03. Roy Morgan, the most complete Tier B polling source
+available, publishes no sample size and no margin of error for its primary
+voting intention poll. It also links no methodology page and offers no data
+download. So for much of the series there is nothing to draw.
+
+**The absence gets its own marker.** A poll point with no published margin
+carries a small open circle in `--color-ink-muted`, distinct from a banded
+point, plus a count in the caption. Do not render it as a clean point on a line,
+because a clean point on a line asserts a precision nobody stated.
+
+**Never impute.** Do not compute a margin from a default maximum sample size, do
+not carry forward the last known margin, do not substitute an industry rule of
+thumb. A fabricated band is a fabricated number in the visual language of
+honesty, which is the one thing this site does not do.
+
+This makes the motif more honest than the original brief assumed. The band is
+not decoration for the numbers; it is the record of how precise the source said
+it was. Where the source said nothing, the chart shows nothing, and says so.
+
+**This is a statement about the evidence, not about the source.** The marker
+marks the limit of what the page's comparison can support. It is never captioned
+as a criticism of any publisher, and the page does not generalise from one
+publisher to pollsters as a class. See the Gotchas entry "Do not write about
+pollsters" in `AGENTS.md`.
+
 ---
 
 ## Typography
@@ -137,7 +164,7 @@ and may not make. The rules below are general.
 | Output | Inline SVG, `role="img"`, with a `<title>` and `<desc>` |
 | Axis | Direct-label the series; drop the x-axis gridlines except a zero rule |
 | Colour | Subject in `--color-ink`, context in `--color-ink-muted` |
-| Uncertainty | Every poll-derived point carries a band and a numeric interval label |
+| Uncertainty | Every poll-derived point carries a band **where one is published**, and a visible "no published margin" marker where one is not. The marker states a limit on the evidence, never a criticism of a publisher. Never impute a margin from an assumed sample size |
 | Annotation | One annotation per chart, in `--color-ink`, with a leader line |
 | Data labels | Prefer them to a legend. Under 8 series, label directly |
 | Tooltips | Hover tooltips are an enhancement, never the only route to a value |
@@ -199,5 +226,9 @@ When generating any markup or CSS for this project:
 4. Emit plain HTML and CSS. No Tailwind, no CSS-in-JS, no component framework.
 5. Subject data is `--color-ink`. Context data is `--color-ink-muted`. Nothing
    else gets a hue.
-6. Any chart rendering a poll figure ships its band, or does not ship.
+6. Any chart rendering a poll figure ships its band where one is published, and
+   its "no published margin" marker where one is not. It ships neither only if
+   the figure is not poll-derived.
 7. Source notes are part of the figure, not an afterthought.
+8. Null is a value. Render it as a visible marker with a count, never as an
+   absence and never as a guessed number.

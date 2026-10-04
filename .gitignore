@@ -1,0 +1,13 @@
+# Python bytecode. The chart generators are stdlib-only and are run directly
+# (python3 charts/chart-01.py) and by tools/build.py, so these get written on
+# every run and are never wanted in the repo.
+__pycache__/
+*.py[cod]
+
+# Generated chart SVG is committed on purpose: index.html is generated output
+# and is committed, so the artefacts it is built from are committed too. This
+# note is here so nobody adds charts/*.svg to this file by mistake.
+
+# Editor and OS noise.
+.DS_Store
+*.swp

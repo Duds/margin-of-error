@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1072 520" class="chart" role="img" aria-labelledby="chart-01-title chart-01-desc" data-unsourced="true" font-family="IBM Plex Mono, ui-monospace, monospace" style="aspect-ratio: 1072 / 520; font-variant-numeric: tabular-nums">
+<title id="chart-01-title">One Nation primary vote intention, polls by year, with published margins of error. Placeholder figures, not published.</title>
+<desc id="chart-01-desc">A time series of poll estimates from 1996 to 2004 plotted against election year. 3 of 4 polls carry a published margin of error, drawn as a hatched band where two or more are adjacent, and as a capped vertical whisker where a single bounded poll stands alone. 1 poll published no margin of error and is drawn as an open circle, with no interval imputed. The y axis runs from 0 to 10 per cent and is not truncated. Fills use the page semantic tokens. These are placeholder figures and are not published.</desc>
+<defs><pattern id="hatch-mo" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="4" stroke="currentColor" stroke-width="1" /></pattern></defs>
+<line x1="92" y1="440.0" x2="1044" y2="440.0" stroke="var(--color-rule)" stroke-width="1" />
+<text x="82" y="444.0" text-anchor="end" font-size="16" fill="var(--color-ink-muted)">0%</text>
+<text x="82" y="362.4" text-anchor="end" font-size="16" fill="var(--color-ink-muted)">2%</text>
+<text x="82" y="280.8" text-anchor="end" font-size="16" fill="var(--color-ink-muted)">4%</text>
+<text x="82" y="199.2" text-anchor="end" font-size="16" fill="var(--color-ink-muted)">6%</text>
+<text x="82" y="117.6" text-anchor="end" font-size="16" fill="var(--color-ink-muted)">8%</text>
+<text x="82" y="36.0" text-anchor="end" font-size="16" fill="var(--color-ink-muted)">10%</text>
+<line x1="92.0" y1="256.4" x2="92.0" y2="134.0" stroke="var(--band-edge)" stroke-width="1" /><line x1="86.0" y1="256.4" x2="98.0" y2="256.4" stroke="var(--band-edge)" stroke-width="1" /><line x1="86.0" y1="134.0" x2="98.0" y2="134.0" stroke="var(--band-edge)" stroke-width="1" />
+<polygon points="687.0,195.2 1044.0,113.6 1044.0,236.0 687.0,317.6" fill="url(#hatch-mo)" color="var(--color-ink-muted)" stroke="var(--band-edge)" stroke-width="1" stroke-dasharray="4 3" />
+<polyline points="92.0,195.2 330.0,72.8 687.0,256.4 1044.0,174.8" fill="none" stroke="var(--color-ink)" stroke-width="2" data-draw-path />
+<circle cx="92.0" cy="195.2" r="4" fill="var(--color-ink)" />
+<circle cx="330.0" cy="72.8" r="5" fill="none" stroke="var(--color-ink-muted)" stroke-width="1.5" />
+<circle cx="687.0" cy="256.4" r="4" fill="var(--color-ink)" />
+<circle cx="1044.0" cy="174.8" r="4" fill="var(--color-ink)" />
+<text x="92.0" y="470" text-anchor="middle" font-size="16" fill="var(--color-ink-muted)">1996</text>
+<text x="330.0" y="470" text-anchor="middle" font-size="16" fill="var(--color-ink-muted)">1998</text>
+<text x="687.0" y="470" text-anchor="middle" font-size="16" fill="var(--color-ink-muted)">2001</text>
+<text x="1044.0" y="470" text-anchor="middle" font-size="16" fill="var(--color-ink-muted)">2004</text>
+<text x="82" y="20" text-anchor="end" font-size="14" fill="var(--color-ink-muted)">Primary vote, per cent</text>
+</svg>

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<!--
+  TEMPLATE. Hand-written. Never generated, never hand-edited in output form.
+
+  The build injects <svg> blocks at <!-- chart:NN --> placeholders and writes
+  index.html. Prose lives here and only here. If you find yourself editing a
+  path coordinate or a number inside index.html, the charts are not being
+  generated and the separation has broken.
+-->
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Margin of Error</title>
+    <meta
+      name="description"
+      content="Does polling overstate or understate One Nation's vote, and does the published margin of error explain the gap?"
+    />
+    <link rel="stylesheet" href="src/margin-of-error.css" />
+    <!-- Roman faces are on the critical path, so preloading them is what
+         protects LCP at the raised 400KB budget. The italic is not preloaded
+         because pull quotes sit below the fold.
+
+         crossorigin is REQUIRED here and must stay. A woff2 @font-face request
+         is made in CORS-anonymous mode, so a preload without crossorigin is
+         not matched to it: the browser fetches the font twice and throws the
+         preloaded copy away. Verified in the network panel. -->
+    <link
+      rel="preload"
+      href="assets/fonts/newsreader-latin-opsz-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="assets/fonts/ibm-plex-sans-latin-wght-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="assets/fonts/ibm-plex-mono-latin-400-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+  </head>
+  <body>
+    <header class="layout">
+      <div class="col-prose">
+        <p class="kicker">Margin of Error</p>
+        <h1>The gap between what polling said and what happened</h1>
+        <p class="lede">
+          Across every federal election since 1996, did polling overstate or
+          understate One Nation's vote, and does the published margin of error
+          explain the difference?
+        </p>
+        <p class="measure">
+          This is an open test, not a verdict. The charts publish whichever way
+          the numbers fall, including the possibility that polling was accurate.
+          Every figure carries a primary-source citation, and every poll-derived
+          number carries the margin of error its publisher stated, or a visible
+          marker saying no margin was published.
+        </p>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="col-prose" aria-labelledby="method-heading">
+        <h2 id="method-heading">What this page measures</h2>
+        <p>
+          The question is narrow on purpose. It covers the party's primary vote
+          in House of Representatives elections since 1996, using only pollster
+          published tables. Senate results, party capability and volunteer
+          coverage are excluded, because none of them can be verified to the
+          standard this page holds itself to.
+        </p>
+      </section>
+
+      <!-- Charts are siblings of the prose section, not children of it.
+
+           A figure nested inside .col-prose is trapped in columns 2 to 8 and
+           can never reach the 1120px breakout track: measured at 1280px, the
+           chart rendered 520px wide with 16px labels scaling to 7.4px. The
+           caption and source note live in the following .col-prose block, so
+           the reading order stays heading, prose, figure, caption. -->
+      <!-- chart:01 -->
+
+      <div class="col-prose">
+        <figcaption class="figure-caption">
+          Polling against the ballot box, by election year. The shaded band
+          marks the margin of error where the publisher stated one.
+        </figcaption>
+        <p class="source-note">
+          This figure is a working draft and its numbers are not real. Every
+          figure on the finished page will resolve to a document in the
+          project's source registry that a reader can open.
+        </p>
+      </div>
+    </main>
+
+    <footer class="layout">
+      <div class="col-prose">
+        <p class="source-note">
+          Method, sourcing registry and corrections are published in the
+          repository. Every figure on this page resolves to a document a reader
+          can open.
+        </p>
+      </div>
+    </footer>
+
+    <script src="src/motion.js" type="module"></script>
+  </body>
+</html>
+</content>
