@@ -378,6 +378,126 @@ def ingest_election_results(
     return out
 
 
+
+ELECTION_ROW = re.compile(r"\bElection\b", re.IGNORECASE)
+
+
+def ingest_discrete_oned(
+    tables: list[list[list[str]]], warnings: list[str]
+) -> list[dict]:
+    """Discrete One Nation polling by wave. Election results are excluded.
+
+    The page carries a second table with its own One Nation column, separate from
+    the long-term monthly one. The monthly table has no such column, so this is
+    the only place on the page a discrete party polling figure exists.
+
+    Results are interleaved with polls in the same first column and must be
+    dropped. Two appear in range, the 2016 and 2019 federal elections, and the
+    2019 one sits *inside* the 2019 year group, so counting rather than matching
+    is how you get a window of 6 where the data holds 5. A result counted as a
+    poll is the same class of error as the 49-versus-48 slip: it survives
+    because nothing recomputes it.
+
+    Coverage on the live source, measured 2026-10-04: 2018 to 2022 complete, 2013
+    to 2016 almost entirely blank, 2017 absent from the table altogether.
+    """
+    candidates = [t for t in tables if "one nation" in [h.strip().lower() for h in t[0]]]
+
+    if not candidates:
+        raise SourceShapeChanged(
+            "no table with a discrete One Nation column found; the page layout "
+            "has probably changed. Roy Morgan's monthly table is not a usable "
+            "substitute: it has no such column."
+        )
+
+    # The live page carries two such tables: the recent election results
+    # (12 rows) and this long-run one (132). Taking the larger is the correct
+    # choice, but picking between them silently is how a series quietly becomes
+    # the wrong series, so an unexpected count is reported rather than absorbed.
+    if len(candidates) > 2:
+        warnings.append(
+            f"{len(candidates)} tables carry a discrete One Nation column, not the "
+            f"2 this script was written against (the recent election results and "
+            f"the long-run polling table). Taking the largest. Re-verify the "
+            f"page structure if the row count looks wrong."
+        )
+
+    table = max(candidates, key=len)
+    header = table[0]
+    idx_oned = select_column(header, "One Nation", "discrete polling table")
+
+    rows: list[dict] = []
+    years_seen: dict[int, int] = {}
+    results_dropped: list[str] = []
+
+    for cells in table[1:]:
+        label = cells[0].strip()
+        if not label:
+            continue
+        if re.fullmatch(r"\d{4}", label):
+            continue  # bare year group header, carries no data
+        if ELECTION_ROW.search(label):
+            results_dropped.append(label)
+            continue
+
+        years = re.findall(r"\b(20\d\d)\b", label)
+        if not years:
+            continue  # a commentary row, not a wave
+        year = int(years[0])
+
+        if idx_oned >= len(cells):
+            continue
+        value = parse_number(cells[idx_oned])
+        if value is None:
+            years_seen.setdefault(year, 0)
+            continue  # no discrete figure for the party on this wave
+
+        window_start, window_end = parse_field_window(label, year)
+        years_seen[year] = years_seen.get(year, 0) + 1
+        rows.append(
+            {
+                "house": "Roy Morgan",
+                "wave_label": label,
+                "year": year,
+                "fielded_start": window_start,
+                "fielded_end": window_end,
+                # Not published by this house. Left null deliberately.
+                "n": "",
+                "margin_of_error": "",
+                "pub_date": "",
+                "pvi_oned": value,
+                "publishes_n": "no",
+                "publishes_margin_of_error": "no",
+                "publishes_pub_date": "no",
+                "source_id": "roymorgan-pvi",
+                "retrieved": date.today().isoformat(),
+            }
+        )
+
+    if not rows:
+        raise SourceShapeChanged(
+            "discrete polling table yielded no usable rows; the page layout has "
+            "probably changed."
+        )
+
+    if results_dropped:
+        warnings.append(
+            f"excluded {len(results_dropped)} election result row(s) from the poll "
+            f"series: {results_dropped}. They share the poll table's first column "
+            f"and are results, not polls."
+        )
+
+    empty = sorted(y for y, n in years_seen.items() if n == 0)
+    if empty:
+        warnings.append(
+            f"{len(empty)} year(s) in the table carry no discrete figure for this "
+            f"party: {', '.join(str(y) for y in empty)}. Recorded as a property "
+            f"of the source, not interpreted."
+        )
+
+    return rows
+
+
 def validate(rows: list[dict], warnings: list[str]) -> list[str]:
     """Fail loudly rather than writing a plausible wrong file."""
     problems: list[str] = []
@@ -450,6 +570,7 @@ def main() -> int:
     try:
         monthly = ingest_monthly(tables, warnings)
         results = ingest_election_results(tables, warnings)
+        oned = ingest_discrete_oned(tables, warnings)
     except (UnmappedColumn, SourceShapeChanged) as exc:
         print(f"error: {exc}", file=sys.stderr)
         print(
@@ -468,6 +589,7 @@ def main() -> int:
 
     write_csv(OUT_DIR / "polls_roymorgan.csv", monthly)
     write_csv(OUT_DIR / "roymorgan_election_results.csv", results)
+    write_csv(OUT_DIR / "polls_roymorgan_oned.csv", oned)
 
     print()
     for w in warnings:

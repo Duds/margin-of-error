@@ -417,5 +417,108 @@ class TestSvgReferences(unittest.TestCase):
                                   f"{name}: band polygon cannot be targeted on print")
 
 
+
+class TestDiscreteOneNationIngest(unittest.TestCase):
+    """The second table on the Roy Morgan page, read for Task 1.
+
+    132 rows spanning 2013 to 2022, with a discrete One Nation column. 48 of
+    those rows are usable poll waves. The rest are blank for this party, and
+    two are election results sitting in the same column as the polls.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "ingest",
+            Path(__file__).resolve().parent.parent / "tools" / "ingest_roymorgan.py",
+        )
+        cls.ingest = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.ingest)
+
+    DISCRETE_HEADER = ["", "ALP", "L-NP", "The Greens", "One Nation",
+                       "NXT/ Centre Alliance", "Ind./Others"]
+
+    def discrete_table(self, rows):
+        return [self.DISCRETE_HEADER] + rows
+
+    def test_election_row_is_excluded_from_the_poll_series(self):
+        """Results and polls share the first column. Only polls belong here."""
+        tables = [self.discrete_table([
+            ["2019", "", "", "", "", "", ""],
+            ["April 20/21, 2019", "34", "34", "13", "4.5", "n/a", "15"],
+            ["2019 Federal Election - May 18, 2019", "33.3", "41.4",
+             "10.4", "3.1", "0.3", "11.5"],
+        ])]
+        rows = self.ingest.ingest_discrete_oned(tables, [])
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["pvi_oned"], 4.5)
+
+    def test_both_election_rows_are_excluded(self):
+        """2016 and 2019 both appear, and the 2019 one sits inside its own
+        year group. That is why 2019 yields 5 poll waves and not 6."""
+        tables = [self.discrete_table([
+            ["2016", "", "", "", "", "", ""],
+            ["2016 Federal Election - July 2, 2016", "34.7", "40", "10",
+             "1.3", "0", "14"],
+            ["2019", "", "", "", "", "", ""],
+            ["April 6/7, 2019", "33", "42", "11", "4.0", "0", "12"],
+            ["2019 Federal Election - May 18, 2019", "33.3", "41.4",
+             "10.4", "3.1", "0.3", "11.5"],
+        ])]
+        rows = self.ingest.ingest_discrete_oned(tables, [])
+        self.assertEqual([r["pvi_oned"] for r in rows], [4.0])
+
+    def test_blank_party_cell_yields_no_row(self):
+        """70 of the source rows are 'n/a' for this party."""
+        tables = [self.discrete_table([
+            ["2016", "", "", "", "", "", ""],
+            ["May 21/22 & 28/29, 2016", "30", "40", "12", "n/a", "n/a", "10"],
+            ["2019", "", "", "", "", "", ""],
+            ["April 6/7, 2019", "33", "42", "11", "4.0", "0", "12"],
+        ])]
+        rows = self.ingest.ingest_discrete_oned(tables, [])
+        self.assertEqual([r["pvi_oned"] for r in rows], [4.0])
+
+    def test_unpublished_fields_are_empty(self):
+        tables = [self.discrete_table([
+            ["2022", "", "", "", "", "", ""],
+            ["April 18-24, 2022", "34", "34", "12", "4.5", "n/a", "14"],
+        ])]
+        row = self.ingest.ingest_discrete_oned(tables, [])[0]
+        for field in ("n", "margin_of_error", "pub_date"):
+            self.assertEqual(row[field], "", f"{field} must stay empty")
+
+    def test_year_is_carried_down_from_the_group_header(self):
+        tables = [self.discrete_table([
+            ["2021", "", "", "", "", "", ""],
+            ["January 4-5, 2021", "34", "38", "11", "4.5", "n/a", "12"],
+        ])]
+        self.assertEqual(self.ingest.ingest_discrete_oned(tables, [])[0]["year"], 2021)
+
+    def test_missing_discrete_table_raises(self):
+        monthly_only = [[
+            ["", "ALP", "Total Others", "Other Parties (ALL)"],
+            ["2025"],
+            ["May 5-31", "37.0", "32.0", "14.5"],
+        ]]
+        with self.assertRaises(self.ingest.SourceShapeChanged):
+            self.ingest.ingest_discrete_oned(monthly_only, [])
+
+    def test_years_with_no_usable_wave_are_warned(self):
+        """2013 to 2016 carry nothing. Reported, not interpreted."""
+        tables = [self.discrete_table([
+            ["2015", "", "", "", "", "", ""],
+            ["March 3-4, 2015", "32", "45", "9", "n/a", "n/a", "13"],
+        ])]
+        tables[0].append(["2019", "", "", "", "", "", ""])
+        tables[0].append(["April 6/7, 2019", "33", "42", "11", "4.0", "0", "12"])
+        warnings = []
+        self.ingest.ingest_discrete_oned(tables, warnings)
+        self.assertTrue(any("2015" in w for w in warnings),
+                        f"no warning named 2015: {warnings}")
+
+
 if __name__ == "__main__":
     unittest.main()
