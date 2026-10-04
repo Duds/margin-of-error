@@ -182,9 +182,16 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   > Blocking publication, not blocking development. Send before the copy is
   > final, so a substantive response can shape the framing.
   > Depends on: 0001.
-- **0007 — Chart one: polling against result** — **DESIGN APPROVED 2026-10-04,
-  SPEC WRITTEN, awaiting Dale's review.**
+- **0007 — Chart one: polling against result** — **DESIGN AND SPEC APPROVED
+  2026-10-04. IMPLEMENTATION PLAN WRITTEN.**
   > Spec: `docs/superpowers/specs/2026-10-04-chart-01-polling-vs-result-design.md`
+  > Plan: `docs/superpowers/plans/2026-10-04-chart-01-polling-vs-result-plan.md`
+  > Eight tasks, ordered 1 to 8. **Note:** the `writing-plans` skill the
+  > brainstorming skill names is not installed on this machine, so the plan was
+  > written by hand against the spec rather than by that skill.
+  > **Expect CI to go red at plan Task 6 and stay red until task 0003 delivers
+  > AEC figures.** That is the gate working, not a broken build, and the
+  > assertion must not be loosened to make it green.
   > **The spine is polling-against-result, 2018 to 2022.** 48 fortnightly waves
   > with a discrete One Nation figure against two election results. Mean of the
   > preceding waves: 3.70% for 2019 (result 3.1, gap **+0.60pp**), 3.71% for 2022
@@ -944,3 +951,24 @@ Append-only. Newest last.
   Neither error would have been caught by reading the spec. Both were caught by
   running the computation again against the source, which is the habit the spec
   itself mandates for every number on the page.
+- 2026-10-04 — **Spec approved with two changes; implementation plan written.**
+  Dale: "lets add the seat-efficiency chart alongside", "lets build the chart
+  and when I can eyeball it I will decide if it stays or goes", and approval of
+  the spec.
+  **Chart 02 added** (editorial Chart 04, moved earlier because the data exists
+  now): national primary vote against seat share, both measured as a share of
+  the 151-seat House so a single axis is honest rather than convenient, gap
+  shaded. Provisional and marked as such — it will be judged by eye. It shares
+  no data and no code with Chart 01 beyond `charts/stats.py`, so cutting it
+  later costs nothing. The Farrer by-election is an **annotation on Chart 02,
+  never a point on the series**: different electorate, different field,
+  different denominator.
+  **The supporting spans moved** from a separate figure to a second panel within
+  the spine, so claim and evidence read together under one heading and one
+  source note, and the page resolves to two charts rather than three. Recorded as
+  a post-approval change rather than made silently.
+  **The plan expects CI to be red.** Its Task 6 installs the AEC gate, which
+  fails while the 2019 and 2022 results are cross-check-only. That failure is the
+  correct state, so the plan says so explicitly and forbids loosening the
+  assertion to get a green tick. Ordered last among the code tasks for the same
+  reason: a known, explained red build beats a surprise mid-implementation.
