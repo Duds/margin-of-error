@@ -812,6 +812,10 @@ class TestChart02SeatShare(unittest.TestCase):
         chart02 = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(chart02)
 
+        # CHAR_UNITS lives in scales.py now: both chart modules had their own
+        # copy and both wrapped by character count, which is the same bug twice.
+        from scales import CHAR_UNITS_16  # noqa: PLC0415
+
         bye = {"division": "Farrer", "year": 2026,
                "primary_pct": 39.53, "tcp_pct": 57.55}
         for viewport in ("wide", "narrow"):
@@ -819,7 +823,7 @@ class TestChart02SeatShare(unittest.TestCase):
             blocks = chart02.header_blocks(viewport, bye)
             for key in ("title", "note"):
                 for line in blocks[key]:
-                    units = len(line) * chart02.CHAR_UNITS_16
+                    units = len(line) * CHAR_UNITS_16
                     self.assertLessEqual(
                         units, budget,
                         f"{viewport} {key} line {units:.0f}u over {budget:.0f}u: "
@@ -902,13 +906,23 @@ class TestChart02SeatShare(unittest.TestCase):
             self.assertIn('id="hatch-mo-print"', svg)
 
         if not referenced:
-            # Until the caption task adds the placeholder, this test is the only
-            # thing checking Chart 02. Recorded so the gap is visible rather
-            # than assumed closed.
+            # Until the template references it, this direct call is the only
+            # thing checking Chart 02. The caption task closed that gap by
+            # adding <!-- chart:02 -->, so this branch is now the fallback
+            # rather than the only line of defence.
             self.assertTrue(
                 (root / "chart-02.svg").exists(),
                 "Chart 02 is generated but neither referenced nor validatable.",
             )
+        else:
+            # Referenced, so the build gate reaches it. Assert the gate would
+            # actually notice a regression rather than trusting that it does.
+            template = (
+                Path(__file__).resolve().parent.parent / "src" / "index.template.html"
+            ).read_text()
+            self.assertIn("<!-- chart:02 -->", template)
+            built = (Path(__file__).resolve().parent.parent / "index.html").read_text()
+            self.assertIn('data-chart="02"', built)
 
     def test_the_2004_to_2016_discontinuity_is_marked(self):
         svg = self.CHART.read_text()
@@ -1054,6 +1068,178 @@ class TestAecSeatIngest(unittest.TestCase):
         )
         lines = csv_path.read_text().strip().splitlines()[1:]
         self.assertEqual({int(l.split(",")[3]) for l in lines}, {0})
+
+
+class TestWrapToWidth(unittest.TestCase):
+    """Wrapping is in user units, not characters.
+
+    Both chart modules carried their own copy and both wrapped by character
+    count, which is the same bug found twice. Chart 01's narrow variant measured
+    485 and 755 units inside a 420 canvas, so its two panel titles ran off the
+    right edge and were clipped.
+    """
+
+    def test_a_line_never_exceeds_the_budget_it_was_given(self):
+        from scales import CHAR_UNITS_16, wrap_to_width
+
+        text = (
+            "Where polling sat before each election, and what the ballot gave"
+        )
+        for budget in (340, 400, 940, 1072):
+            for line in wrap_to_width(text, budget):
+                self.assertLessEqual(
+                    len(line) * CHAR_UNITS_16,
+                    budget,
+                    f"budget {budget}: {line!r} overruns",
+                )
+
+    def test_a_character_budget_would_not_have_caught_this(self):
+        """The old failure, stated as a test so it cannot come back quietly.
+
+        76 characters is the wide chart's fit. The same 76 characters need 732
+        units, and the narrow column is 340.
+        """
+        from scales import CHAR_UNITS_16
+
+        self.assertGreater(76 * CHAR_UNITS_16, 340)
+
+    def test_the_advance_widths_are_measured_not_assumed(self):
+        """9.632 units per character at 16px, 10.836 at 18px.
+
+        Measured in a browser with getBBox over a 100-character sample. If the
+        font stack changes these are wrong and every wrapped line is wrong with
+        it, so they are asserted as a ratio rather than left implicit.
+        """
+        from scales import CHAR_UNITS_16, CHAR_UNITS_18
+
+        self.assertAlmostEqual(CHAR_UNITS_16, 9.632, places=3)
+        self.assertAlmostEqual(CHAR_UNITS_18, 10.836, places=3)
+        # 18px is 1.125x 16px in the same monospace face.
+        self.assertAlmostEqual(CHAR_UNITS_18 / CHAR_UNITS_16, 1.125, places=2)
+
+    def test_no_chart_wraps_by_character_count_any_more(self):
+        """Neither generator calls textwrap.wrap with a literal width."""
+        root = Path(__file__).resolve().parent.parent / "charts"
+        for name in ("chart_01.py", "chart_02.py"):
+            src = (root / name).read_text()
+            self.assertNotIn(
+                "textwrap.wrap(", src, f"{name} wraps by character count"
+            )
+            self.assertIn("wrap_to_width", src, f"{name} does not use the shared helper")
+
+
+class TestCaptionFiguresAreInjected(unittest.TestCase):
+    """Prose states the same numbers the charts draw, from the same source.
+
+    The alternative — typing a figure into the caption — is the drift this
+    whole repository is arranged to prevent. The archived feasibility model
+    printed 1.33% booth coverage and the prose about it said "below 15%", with
+    nothing in between to notice.
+    """
+
+    ROOT = Path(__file__).resolve().parent.parent
+    TEMPLATE = ROOT / "src" / "index.template.html"
+    BUILT = ROOT / "index.html"
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "build", cls.ROOT / "tools" / "build.py"
+        )
+        cls.build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.build)
+
+    def test_template_contains_no_dataset_literal(self):
+        """The template carries slots, never figures.
+
+        Matched as whole numbers, for the reason TestChart01IsDataDriven sets
+        out: a substring test cannot tell a figure from a year or a slot name.
+        """
+        src = self.TEMPLATE.read_text()
+        for value in ("3.70", "3.71", "0.60", "1.29", "48 waves", "39.53", "57.55"):
+            self.assertNotIn(
+                value, src, f"{value} is typed into the template, not injected"
+            )
+
+    def test_template_declares_figure_slots(self):
+        src = self.TEMPLATE.read_text()
+        for slot in ("{{gap_2019}}", "{{gap_2022}}", "{{waves_total}}"):
+            self.assertIn(slot, src, f"{slot} missing from the template")
+
+    def test_every_declared_slot_is_filled(self):
+        """An unfilled slot is the prose equivalent of an unfilled chart.
+
+        `{{gap_2019}}` left in the output ships braces and a promise to the
+        reader, and reads as finished.
+        """
+        slots = set(re.findall(r"\{\{(\w+)\}\}", self.TEMPLATE.read_text()))
+        self.assertTrue(slots, "the template declares no slots at all")
+        filled = self.build.figure_slots()
+        missing = sorted(slots - set(filled))
+        self.assertEqual(missing, [], f"slots declared but never filled: {missing}")
+
+    def test_built_page_carries_the_computed_figures(self):
+        built = self.BUILT.read_text()
+        self.assertIn("3.70", built)
+        self.assertIn("1.29", built)
+        self.assertNotIn("{{", built)
+
+    def test_the_caption_states_the_missing_margins(self):
+        """Non-negotiable 5. The absence has to be on the page, not just in
+        the chart's desc, because a reader using images off reads the caption.
+        """
+        built = self.BUILT.read_text()
+        self.assertIn("no margin of error", built)
+        self.assertIn("sample size", built)
+
+    def test_the_caption_does_not_criticise_any_publisher(self):
+        """AGENTS.md: the absence is a property of the evidence, not a finding
+        about a publisher, and the page must not present it as one."""
+        built = self.BUILT.read_text().lower()
+        for phrase in (
+            "failed to publish",
+            "refused to disclose",
+            "secretive",
+            "poor practice",
+            "should have published",
+            "withholds",
+        ):
+            self.assertNotIn(phrase, built, f"page editorialises a publisher: {phrase}")
+
+    def test_the_chart01_caption_does_not_claim_a_shown_band(self):
+        """It used to say the shaded band marks the margin of error.
+
+        No wave in the series carries one, so that sentence described a mark
+        the chart does not draw. Corrected when the real caption landed.
+        """
+        self.assertNotIn(
+            "marks the margin of error where the publisher stated one",
+            self.BUILT.read_text(),
+        )
+
+    def test_the_caption_states_the_chamber_boundary_the_data_carries(self):
+        """I typed this wrong twice.
+
+        "Between 2001 and 2016 the House had 150 seats" reads as two
+        elections, not a range. It is now computed from the data. The span is
+        pinned here so a hand-typed year cannot come back.
+        """
+        built = " ".join(self.BUILT.read_text().split())
+        self.assertIn("The House had 150 seats from 2001 to 2016", built)
+        self.assertIn("has had 151 since 2019", built)
+
+    def test_the_caption_states_the_span_the_chart_actually_shades(self):
+        """The shaded block is 2004 to 2016, not 2001 to 2016.
+
+        2001 to 2016 is the span the House had 150 seats, which is a different
+        fact about a different variable. Conflating them would describe a block
+        the chart does not draw.
+        """
+        built = " ".join(self.BUILT.read_text().split())
+        self.assertIn("The shaded block marks 2004 to 2016", built)
+        self.assertNotIn("The shaded block marks 2001 to 2016", built)
 
 
 if __name__ == "__main__":

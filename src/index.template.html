@@ -87,16 +87,63 @@
            caption and source note live in the following .col-prose block, so
            the reading order stays heading, prose, figure, caption. -->
       <!-- chart:01 -->
+      <!-- chart:02 -->
 
       <div class="col-prose">
         <figcaption class="figure-caption">
-          Polling against the ballot box, by election year. The shaded band
-          marks the margin of error where the publisher stated one.
+          <p>
+            Polling against the ballot box, at the 2019 and 2022 federal
+            elections. Before 2019, {{waves_2019}} waves put the party between
+            {{polled_low_2019}} and {{polled_high_2019}} per cent, averaging
+            {{mean_2019}}. It recorded {{result_2019}}. Before 2022,
+            {{waves_2022}} waves averaged {{mean_2022}} and the party recorded
+            {{result_2022}}. Polling ran {{gap_2019}} points high in 2019 and
+            {{gap_2022}} points low in 2022.
+          </p>
+          <p>
+            None of the {{waves_total}} waves in this series carries a published
+            margin of error, sample size or publication date, so no margin is
+            drawn here and none is assumed. That is a limit on what this
+            comparison can show, not a judgement about the publisher: it marks
+            where the evidence stops, and a reader cannot judge how precise any
+            of these figures was.
+          </p>
         </figcaption>
+
+        <figcaption class="figure-caption">
+          <p>
+            National primary vote against the party's share of the House, across
+            {{aec_elections}} federal general elections from {{aec_first_year}}
+            to {{aec_last_year}}. Its best primary vote in that period was
+            {{aec_best_vote}} per cent in {{aec_best_vote_year}}. Across all of
+            them it won {{aec_total_seats}} seats.
+          </p>
+          <p>
+            The party's one seat came at a by-election in 2026, at a single
+            division in Farrer, NSW. It is not plotted here and not counted
+            above: a by-election covers one electorate rather than the whole
+            House, so its vote share and its seat share are not measured on the
+            same basis as a general election.
+          </p>
+          <p>
+            The House had {{aec_chamber_small}} seats from {{aec_first_year}} to
+            {{aec_chamber_small_to}} and has had {{aec_chamber_large}} since
+            {{aec_chamber_large_from}}, so each seat share here is measured
+            against the House as it was then. The shaded block marks
+            {{aec_thin_from}} to {{aec_thin_to}}, where the party contested far
+            fewer divisions and the low figures reflect a thinner slate rather
+            than a collapse in support.
+          </p>
+        </figcaption>
+
         <p class="source-note">
-          This figure is a working draft and its numbers are not real. Every
-          figure on the finished page will resolve to a document in the
-          project's source registry that a reader can open.
+          Polling figures: Roy Morgan's published primary voting intention, read
+          from the discrete One Nation column on their own results table.
+          Election results in the first figure are Roy Morgan's cross-check of
+          the count. Election results and seat counts in the second figure are
+          the Australian Electoral Commission's, one file per election. Every
+          figure resolves to a document in the project's source registry that a
+          reader can open.
         </p>
       </div>
     </main>

@@ -33,7 +33,13 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
 
-from scales import Box, Scale, nice_domain, ticks  # noqa: E402
+from scales import (  # noqa: E402
+    Box,
+    Scale,
+    nice_domain,
+    ticks,
+    wrap_to_width,
+)
 from stats import Result, gaps, load_polls, window_mean  # noqa: E402
 
 POLL_CSV = ROOT / "data" / "polls_roymorgan_oned.csv"
@@ -142,10 +148,44 @@ def render(viewport: str, panels: dict) -> str:
     narrow = viewport == "narrow"
     box_h = plot.bottom - plot.top
 
+    # Panel titles are wrapped before the panels are positioned, because on the
+    # narrow variant the second title is two lines and has to be allowed to
+    # push the panel below it down. Positioning first and wrapping second is how
+    # the wrapped title ended up drawn through panel 1's year labels: the panel
+    # fractions were fixed, the text was not, and the text got longer.
+    gap_title_lines = wrap_to_width(
+        "Polling minus result, percentage points",
+        plot.right - plot.left,
+        18,
+    )
+    span_title_lines = wrap_to_width(
+        "Where polling sat before each election, and what the ballot gave",
+        plot.right - plot.left,
+        18,
+    )
+    note_text = (
+        f"{panels['waves']} of {panels['waves']} waves publish no margin of "
+        f"error, no sample size and no publication date."
+    )
+    note_lines = wrap_to_width(note_text, plot.right - plot.left)
+
     gap_top = plot.top + box_h * GAP_PANEL_TOP
     gap_bottom = plot.top + box_h * GAP_PANEL_BOTTOM
     span_top = plot.top + box_h * SPAN_PANEL_TOP
     span_bottom = plot.top + box_h * SPAN_PANEL_BOTTOM
+
+    # Panel 1's labels sit below its axis; panel 2's title must clear them, and
+    # must clear its own extra lines. Both are measured in bounding boxes: an
+    # 18px line's box is about 23 units tall.
+    span_title_y = max(
+        span_top - 14,
+        gap_bottom + 78 + (len(gap_title_lines) - 1) * 0,
+    )
+    span_title_y -= (len(span_title_lines) - 1) * 26
+    if span_title_y < gap_bottom + 64:
+        span_title_y = gap_bottom + 64
+        span_top = span_title_y + 14 + (len(span_title_lines) - 1) * 26
+        span_bottom = plot.bottom
 
     gs = panels["gaps"]
     signed = [g.signed_gap for g in gs]
@@ -214,10 +254,12 @@ def render(viewport: str, panels: dict) -> str:
     )
 
     # ---- Panel 1: the gap -------------------------------------------------
-    out.append(
-        f'<text x="{gap_plot.left}" y="{gap_top - 14}" font-size="{title}" '
-        f'fill="var(--color-ink)">Polling minus result, percentage points</text>'
-    )
+    title_y = gap_top - 14 - (len(gap_title_lines) - 1) * 26
+    for i, line in enumerate(gap_title_lines):
+        out.append(
+            f'<text x="{gap_plot.left}" y="{title_y + i * 26}" '
+            f'font-size="{title}" fill="var(--color-ink)">{line}</text>'
+        )
     zero_y = gap_y(0)
     for tv in gap_ticks:
         ty = gap_y(tv)
@@ -262,12 +304,14 @@ def render(viewport: str, panels: dict) -> str:
     # ---- Panel 2: the evidence -------------------------------------------
     # Clearance is measured against the label's bounding box, not its ink:
     # getBBox on a 18px line is ~23px tall, which is why span_top-14 landed
-    # inside the year labels at y=166-188 rather than below them.
-    out.append(
-        f'<text x="{plot.left}" y="{max(span_top - 14, gap_bottom + 78):.1f}" '
-        f'font-size="{title}" fill="var(--color-ink)">Where polling sat before '
-        f'each election, and what the ballot gave</text>'
-    )
+    # inside the year labels at y=166-188 rather than below them. The same
+    # reason the wrapped title starts at gap_bottom + 78 rather than a fixed
+    # offset: on narrow it is two lines, and the second line needs the room.
+    for i, line in enumerate(span_title_lines):
+        out.append(
+            f'<text x="{plot.left}" y="{span_title_y + i * 26:.1f}" '
+            f'font-size="{title}" fill="var(--color-ink)">{line}</text>'
+        )
 
     span_slot = (plot.right - plot.left) / n
     for v in [x for x in ticks(v_lo, v_hi, v_step) if v_lo <= x <= v_hi]:
@@ -307,6 +351,25 @@ def render(viewport: str, panels: dict) -> str:
             f'<line x1="{cx - 13:.1f}" y1="{r_y:.1f}" x2="{cx + 13:.1f}" '
             f'y2="{r_y:.1f}" stroke="var(--color-ink)" stroke-width="2.5" />'
         )
+        # Per-election captions. Wide has room; the narrow plot has two slots
+        # across 340 units and the wave-count caption is 173 units, so the
+        # labels would collide with each other as well as overrun the canvas.
+        # Narrow keeps the mean and the result, which is what a reader needs to
+        # read the shape; the full span and wave count are in the desc and on
+        # the wide variant.
+        if narrow:
+            out.append(
+                f'<text x="{cx:.1f}" y="{span_bottom + 26}" font-size="{tick}" '
+                f'text-anchor="middle" fill="var(--color-ink-muted)">'
+                f'mean {m.value:.2f}%</text>'
+            )
+            out.append(
+                f'<text x="{cx:.1f}" y="{span_bottom + 50}" font-size="{strong}" '
+                f'text-anchor="middle" fill="var(--color-ink)">'
+                f'result {g.result:g}%</text>'
+            )
+            continue
+
         out.append(
             f'<text x="{cx:.1f}" y="{span_bottom + 26}" font-size="{tick}" '
             f'text-anchor="middle" fill="var(--color-ink-muted)">'
@@ -323,14 +386,6 @@ def render(viewport: str, panels: dict) -> str:
             f'result {g.result:g}%</text>'
         )
 
-    # Wrapped rather than one long line: a single line measured 1208 units in a
-    # 1072 box, so it ran off the right edge and was clipped. Roughly 76
-    # characters per line at 16px monospace in this viewport.
-    note = (
-        f"{panels['waves']} of {panels['waves']} waves publish no margin of "
-        f"error, no sample size and no publication date."
-    )
-    note_lines = textwrap.wrap(note, width=76)
     note_y = h - 16 - (len(note_lines) - 1) * 22
     for i, line in enumerate(note_lines):
         out.append(

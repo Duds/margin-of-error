@@ -48,7 +48,13 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
 
-from scales import Box, Scale, nice_domain, ticks  # noqa: E402
+from scales import (  # noqa: E402
+    Box,
+    Scale,
+    nice_domain,
+    ticks,
+    wrap_to_width,
+)
 from stats import seat_share  # noqa: E402
 
 DATA_CSV = ROOT / "data" / "aec_election_results.csv"
@@ -105,30 +111,6 @@ def geometry(viewport: str, blocks: dict, footer: list[str]) -> tuple[int, int, 
 # Room kept clear on the right of the text column, so a wrapped line that
 # exactly fills its budget still sits inside the canvas.
 TEXT_MARGIN_RIGHT = {"wide": 28, "narrow": 16}
-
-# --- Text measurement -------------------------------------------------------
-#
-# Wrapping is done in user units, not characters. `textwrap.wrap` counts
-# characters, but the limit that matters is the canvas width in user units, and
-# at 16px IBM Plex Mono one character is 9.632 units across — measured in a
-# browser with getBBox, not assumed. So a 52-character wrap needs 501 units in
-# a narrow plot 356 units wide, and the line runs 145 units off the right edge.
-#
-# The first pass wrapped by character count and every line still overflowed,
-# because a character count and a unit budget are different quantities.
-CHAR_UNITS_16 = 9.632
-CHAR_UNITS_18 = 10.836
-
-
-def wrap_to_width(text: str, max_units: float, font_size: int) -> list[str]:
-    """Wrap text so no line exceeds `max_units` user units.
-
-    The advance width is a measured constant rather than a guess, and it
-    differs by font size, so the caller states which applies.
-    """
-    per_char = CHAR_UNITS_18 if font_size >= 18 else CHAR_UNITS_16
-    return textwrap.wrap(text, width=max(8, int(max_units // per_char))) or [text]
-
 
 TITLE_TEXT = "What share of the vote, and what share of the House"
 

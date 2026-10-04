@@ -463,19 +463,22 @@ third-party surface of the page.
 
 ## Placeholder figures (NOT SOURCED, NOT FOR PUBLICATION)
 
-`charts/chart_01.py` carries unsourced values carried over from the discarded
-prototype. They exist only to exercise the build. They have **no entry** in any
-source tier above, which is why they must not ship.
+**This section is now empty, and that is the intended state.**
+
+It listed `charts/chart-01.svg` and its narrow variant as PLACEHOLDER, unsourced
+figures carried over from the discarded prototype. Both were regenerated on
+2026-10-04 from the ingested Roy Morgan series, declare
+`data-source-id="roymorgan-pvi"`, and resolve to the `roymorgan-pvi` entry
+above. Chart 02 was built the same way and declares the AEC ids.
+
+The section is kept rather than deleted because `tools/build.py` refuses a
+`data-unsourced="true"` chart that this section does not mention. If a chart
+ever reverts to placeholder figures it must be recorded here, and an empty table
+is the state that means nothing is unsourced.
 
 | Figure | Status |
 |---|---|
-| `charts/chart-01.svg`, `charts/chart-01-narrow.svg` | PLACEHOLDER. Delete and regenerate under task 0007 once tasks 0003 and 0004 supply sourced data. |
-
-Both SVGs declare `data-unsourced="true"` on their root `<svg>` element, which
-is what `tools/build.py` checks. They are listed here so the unsourced figures
-are auditable from the registry rather than being a private note in a Python
-file — the build refuses a `data-unsourced="true"` chart that this section does
-not mention.
+| _(none)_ | No figure is unsourced. |
 
 The guard landed 2026-10-04. `tools/build.py` now refuses any chart that
 declares neither a `data-source-id` nor `data-unsourced="true"`, refuses a

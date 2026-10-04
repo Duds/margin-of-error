@@ -11,6 +11,7 @@ Stdlib only. Usage: python3 tools/build.py [--check]
 """
 
 import argparse
+import csv
 import re
 import sys
 from pathlib import Path
@@ -38,6 +39,121 @@ PROSE_PLACEHOLDERS = ("PLACEHOLDER", "TBD", "TODO", "XXX", "Lorem ipsum")
 # the dangerous case, so that is what fails.
 UNSOURCED_ATTR = re.compile(r'data-unsourced="(true|false)"')
 SOURCE_ID_ATTR = re.compile(r'data-source-id="([^"]+)"')
+
+# An unfilled slot in the prose. Refused rather than shipped: `{{gap_2019}}`
+# reaching the reader is a promise unkept, and it looks finished.
+SLOT = re.compile(r"\{\{(\w+)\}\}")
+
+
+def figure_slots() -> dict[str, str]:
+    """Every figure the prose states, computed once from the ingested data.
+
+    The template carries `{{gap_2019}}`, never `+0.60`. A figure typed into a
+    caption is a figure that stops agreeing with the chart beside it, and the
+    drift is silent: the page keeps rendering and the sentence stops being
+    true. The archived feasibility model printed 1.33% booth coverage while the
+    prose describing it said "below 15%", with nothing in between to notice.
+
+    So this calls charts/stats.py, the single derivation site, rather than
+    recomputing anything. sys.path is adjusted here because the module lives
+    under charts/ and this script lives under tools/.
+    """
+    sys.path.insert(0, str(ROOT / "charts"))
+    from stats import Result, gaps, load_polls, window_mean  # noqa: E402
+
+    polls = load_polls(ROOT / "data" / "polls_roymorgan_oned.csv")
+
+    results: list[Result] = []
+    with (ROOT / "data" / "roymorgan_election_results.csv").open(
+        encoding="utf-8", newline=""
+    ) as fh:
+        for row in csv.DictReader(fh):
+            results.append(
+                Result(
+                    year=int(row["election_year"]),
+                    value=float(row["primary_vote_oned_pct"]),
+                    # Still Roy Morgan's cross-check, so still unconfirmed. The
+                    # gate that refuses to publish on it is task 0006.
+                    confirmed=(row.get("requires_aec_confirmation") or "").strip()
+                    != "yes",
+                )
+            )
+
+    gaps_ = gaps(results, polls, WINDOW)
+    if not gaps_:
+        raise SystemExit(
+            "no election has preceding waves, so no caption figure can be "
+            "computed. Check the ingest before writing prose."
+        )
+
+    def signed(value: float) -> str:
+        """A signed figure with a true minus sign, not a hyphen.
+
+        U+2212. The chart emits the same character, so the caption and the
+        figure agree glyph for glyph.
+        """
+        return f"\u2212{abs(value):.2f}" if value < 0 else f"+{value:.2f}"
+
+    slots: dict[str, str] = {"waves_total": str(len(polls))}
+    for g in gaps_:
+        m = window_mean(polls, g.year, WINDOW)
+        slots[f"gap_{g.year}"] = signed(g.signed_gap)
+        slots[f"mean_{g.year}"] = f"{g.mean:.2f}"
+        slots[f"waves_{g.year}"] = str(g.n_used)
+        slots[f"result_{g.year}"] = f"{g.result:g}"
+        slots[f"polled_low_{g.year}"] = f"{m.low:g}" if m else ""
+        slots[f"polled_high_{g.year}"] = f"{m.high:g}" if m else ""
+
+    # Chart 02's figures, from the AEC series. Same rule: read, never typed.
+    with (ROOT / "data" / "aec_election_results.csv").open(
+        encoding="utf-8", newline=""
+    ) as fh:
+        aec = list(csv.DictReader(fh))
+    if aec:
+        seats = sum(int(r["seats_won"]) for r in aec)
+        slots["aec_elections"] = str(len(aec))
+        slots["aec_first_year"] = aec[0]["election_year"]
+        slots["aec_last_year"] = aec[-1]["election_year"]
+        slots["aec_total_seats"] = str(seats)
+        slots["aec_best_vote"] = f"{max(float(r['primary_vote_pct']) for r in aec):g}"
+        slots["aec_best_vote_year"] = max(
+            aec, key=lambda r: float(r["primary_vote_pct"])
+        )["election_year"]
+        large = max(int(r["chamber_size"]) for r in aec)
+        small = min(int(r["chamber_size"]) for r in aec)
+        slots["aec_chamber_small"] = str(small)
+        slots["aec_chamber_large"] = str(large)
+        slots["aec_chamber_large_from"] = min(
+            r["election_year"] for r in aec if int(r["chamber_size"]) == large
+        )
+
+        slots["aec_chamber_small_to"] = max(
+            r["election_year"] for r in aec if int(r["chamber_size"]) == small
+        )
+
+    # The low-coverage block Chart 02 shades. Read from the chart module's own
+    # constants rather than typed here, so the caption cannot describe a
+    # different span than the chart draws. This was wrong twice by hand: first
+    # it said "2004 to 2016", then "2001 to 2016", which is the span the House
+    # had 150 seats and is a different thing entirely.
+    thin = _thin_coverage_span()
+    if thin:
+        slots["aec_thin_from"], slots["aec_thin_to"] = thin
+
+    return slots
+
+
+def _thin_coverage_span() -> tuple[str, str] | None:
+    """The years Chart 02 marks as thinner slate coverage, or None."""
+    sys.path.insert(0, str(ROOT / "charts"))
+    try:
+        import chart_02
+    except Exception:
+        return None
+    return str(chart_02.THIN_COVERAGE_FROM), str(chart_02.THIN_COVERAGE_TO)
+
+
+WINDOW = 12
 
 
 def data_sources() -> str:
@@ -209,6 +325,19 @@ def build(template: str) -> str:
             f"{indent}<!-- chart:{chart_id} -->",
             f'<figure class="col-full" data-chart="{chart_id}">\n{body}'
             f"\n{' ' * len(indent.expandtabs(2))}</figure>",
+        )
+
+    # Prose figures, substituted after the charts so a caption can state a
+    # number the chart beside it draws.
+    slots = figure_slots()
+    out = SLOT.sub(lambda m: slots.get(m.group(1), m.group(0)), out)
+
+    unfilled = sorted(set(SLOT.findall(out)))
+    if unfilled:
+        raise SystemExit(
+            f"unfilled figure slots in the built page: {', '.join(unfilled)}. "
+            f"Declared in the template but absent from figure_slots(). An "
+            f"unfilled slot ships braces and a promise to the reader."
         )
     return out
 
