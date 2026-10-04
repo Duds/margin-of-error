@@ -702,5 +702,185 @@ class TestChart01IsDataDriven(unittest.TestCase):
                         f"2022 should use a true minus sign: {labels[1]!r}")
 
 
+class TestSeatShare(unittest.TestCase):
+    """The denominator is the number of seats actually in the House.
+
+    The House returned 150 seats at the 2001 to 2016 elections and 151 from
+    2019, so "seat share" has two legitimate denominators across the span this
+    chart covers. Hard-coding either one is wrong, which is why the chamber size
+    is read from the source row rather than assumed.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "stats", Path(__file__).resolve().parent.parent / "charts" / "stats.py"
+        )
+        cls.stats = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.stats)
+
+    def test_share_is_over_the_seats_actually_in_the_house(self):
+        self.assertAlmostEqual(self.stats.seat_share(1, 151), 1 / 151)
+        self.assertAlmostEqual(self.stats.seat_share(151, 151), 1.0)
+        self.assertAlmostEqual(self.stats.seat_share(0, 151), 0.0)
+
+    def test_the_150_seat_years_use_150(self):
+        """A 1-seat share in a 150-seat House is 0.667%, not 0.662%.
+
+        The difference is 4.4e-5, which assertAlmostEqual(places=4) treats as
+        equal. Asserting on the ratio instead, because that is what actually
+        distinguishes the two denominators.
+        """
+        self.assertAlmostEqual(self.stats.seat_share(1, 150), 1 / 150)
+        self.assertGreater(
+            self.stats.seat_share(1, 150) / self.stats.seat_share(1, 151), 1.005
+        )
+
+    def test_a_chamber_size_must_be_a_positive_int(self):
+        for bad in (0, -1, 151.0, "151", None):
+            with self.assertRaises(ValueError):
+                self.stats.seat_share(1, bad)
+
+    def test_more_seats_than_the_house_has_is_refused(self):
+        """A row claiming 151 seats in a 150-seat House is corrupt data.
+
+        Refusing is better than plotting it: it would draw a 100% share and
+        flatten the axis against every other election.
+        """
+        with self.assertRaises(ValueError):
+            self.stats.seat_share(151, 150)
+
+    def test_seat_count_must_be_a_whole_non_negative_number(self):
+        for bad in (-1, 0.5, "0", None):
+            with self.assertRaises(ValueError):
+                self.stats.seat_share(bad, 151)
+
+
+class TestChart02SeatShare(unittest.TestCase):
+    """Chart 02's two series are percentages of the same elected body."""
+
+    CHART = Path(__file__).resolve().parent.parent / "charts" / "chart-02.svg"
+    SOURCE = Path(__file__).resolve().parent.parent / "charts" / "chart_02.py"
+
+    def test_farrer_is_an_annotation_and_never_a_point(self):
+        """A by-election has its own electorate and its own denominator."""
+        svg = self.CHART.read_text()
+        self.assertIn("Farrer", svg)
+        for element in re.findall(r"<(circle|rect|path)[^>]*>", svg):
+            self.assertNotIn("Farrer", element, "by-election plotted as a mark")
+
+    def test_chart_is_sourced_and_not_a_placeholder(self):
+        svg = self.CHART.read_text()
+        self.assertIn("data-source-id=", svg)
+        self.assertNotIn("data-unsourced", svg)
+
+    def test_the_2004_to_2016_discontinuity_is_marked(self):
+        svg = self.CHART.read_text()
+        self.assertIn("2004", svg)
+        self.assertIn("2016", svg)
+
+    def test_generator_holds_no_dataset_literal(self):
+        """Seat counts and vote shares are read, never typed."""
+        src = self.SOURCE.read_text()
+        for value in ("6.4", "4.3", "3.1", "0.66", "39.53", "57.55"):
+            self.assertNotIn(value, src, f"{value} is transcribed, not computed")
+
+    def test_chamber_size_is_stated_because_it_changed(self):
+        """150 seats then 151. A reader cannot check the share without it."""
+        svg = self.CHART.read_text()
+        self.assertIn("150", svg)
+        self.assertIn("151", svg)
+
+    def test_chart_keeps_the_accessibility_floor(self):
+        svg = self.CHART.read_text()
+        self.assertIn('role="img"', svg)
+        self.assertIn("<title", svg)
+        self.assertIn("<desc", svg)
+        self.assertIn('id="hatch-mo-print"', svg)
+
+
+class TestAecSeatIngest(unittest.TestCase):
+    """The AEC seat and vote series, and the three traps that shape it.
+
+    Every figure on Chart 02 comes from here. The tests exist because each
+    trap produces a plausible wrong number rather than an error.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "ingest_aec",
+            Path(__file__).resolve().parent.parent / "tools" / "ingest_aec_seats.py",
+        )
+        cls.ingest = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.ingest)
+
+    def test_party_is_found_by_its_abbreviation_not_its_name(self):
+        """The AEC renamed the party twice. Matching on the modern name drops
+        five of the nine elections."""
+        rows = [
+            {"PartyAb": "LP", "PartyNm": "Liberal", "TotalPercentage": "30"},
+            {"PartyAb": "ON", "PartyNm": "One Nation", "TotalPercentage": "1.29"},
+        ]
+        self.assertEqual(self.ingest.party_row(2016, rows)["TotalPercentage"], "1.29")
+
+    def test_a_year_whose_abbreviation_is_absent_raises(self):
+        """Silently returning nothing makes the series shorter than the caption
+        claims, which is the defect this project keeps finding."""
+        rows = [{"PartyAb": "ALP", "PartyNm": "Australian Labor Party"}]
+        with self.assertRaises(self.ingest.SourceShapeChanged):
+            self.ingest.party_row(2016, rows)
+
+    def test_every_election_has_a_recorded_abbreviation(self):
+        """A year with no abbreviation cannot be looked up, and must not be
+        quietly skipped."""
+        self.assertEqual(
+            set(self.ingest.ABBREVIATION_BY_YEAR),
+            {2001, 2004, 2007, 2010, 2013, 2016, 2019, 2022, 2025},
+        )
+
+    def test_2001_reads_the_national_row_not_a_state_row(self):
+        """The 2001 statistics repeat the party once per state.
+
+        Queensland reads 7.07 and the national figure is 4.34. A scan for the
+        first matching line returns Queensland, which is still a real figure
+        from the real file and would put 2001 above every election but 2025.
+        """
+        self.assertAlmostEqual(
+            float(self.ingest.national_row_2001()["vote_pct"]), 4.34
+        )
+
+    def test_chamber_size_is_counted_not_asserted(self):
+        """150 then 151. Hard-coding either is wrong for part of the series."""
+        self.assertEqual(self.ingest.chamber_size_from_members_elected_2001(), 150)
+
+    def test_seat_count_comes_from_the_source_not_from_absence(self):
+        """2001 has no by-party representation table for the House at all, so
+        the count is made from the elected members carrying the party's code."""
+        self.assertEqual(self.ingest.seats_from_members_elected_2001(), 0)
+
+    def test_the_csv_series_carries_nine_elections_and_two_chamber_sizes(self):
+        csv_path = (
+            Path(__file__).resolve().parent.parent / "data" / "aec_election_results.csv"
+        )
+        lines = csv_path.read_text().strip().splitlines()[1:]
+        self.assertEqual(len(lines), 9)
+        sizes = {int(l.split(",")[4]) for l in lines}
+        self.assertEqual(sizes, {150, 151})
+
+    def test_every_seat_count_is_zero_across_the_whole_series(self):
+        """The claim the chart makes. If this changes, the chart's claim is
+        wrong and the caption must change with it."""
+        csv_path = (
+            Path(__file__).resolve().parent.parent / "data" / "aec_election_results.csv"
+        )
+        lines = csv_path.read_text().strip().splitlines()[1:]
+        self.assertEqual({int(l.split(",")[3]) for l in lines}, {0})
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -198,3 +198,30 @@ def contiguous_years(polls: Sequence[Poll]) -> tuple[int, int]:
         if (run_end - run_start) > (best_end - best_start):
             best_start, best_end = run_start, run_end
     return best_start, best_end
+
+
+def seat_share(seats: int, chamber: int) -> float:
+    """Seats as a fraction of the seats actually in the chamber that election.
+
+    The denominator is a parameter, and deliberately so. The House returned
+    150 seats at the 2001, 2004, 2007, 2010, 2013 and 2016 elections and 151
+    from 2019, verified by summing every party's national total in each AEC
+    party representation download. A single hard-coded 151 — which is what the
+    spec originally said — understates a 1-seat share by a fifth in the earlier
+    years, and the error is invisible because the gap it feeds is already
+    drawn against zero.
+
+    Both arguments are validated rather than coerced. A share of 151 seats in a
+    150-seat chamber is corrupt data, and plotting it would draw a 100% line
+    that flattens every other election against the axis.
+    """
+    if isinstance(chamber, bool) or not isinstance(chamber, int) or chamber <= 0:
+        raise ValueError(f"chamber size must be a positive integer, got {chamber!r}")
+    if isinstance(seats, bool) or not isinstance(seats, int) or seats < 0:
+        raise ValueError(f"seat count must be a non-negative integer, got {seats!r}")
+    if seats > chamber:
+        raise ValueError(
+            f"{seats} seats cannot be a share of a {chamber}-seat chamber. "
+            f"This is corrupt data, and plotting it would draw a 100% line."
+        )
+    return seats / chamber

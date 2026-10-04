@@ -1,0 +1,10 @@
+election_year,party_ab,primary_vote_pct,seats_won,chamber_size,seat_share_pct,source_id,retrieved
+2001,HAN,4.34,0,150,0.0000,aec-hor-2001-fp-by-party,2026-10-04
+2004,HAN,1.19,0,150,0.0000,aec-hor-2004-fp-by-party,2026-10-04
+2007,ON,0.26,0,150,0.0000,aec-hor-2007-fp-by-party,2026-10-04
+2010,ON,0.22,0,150,0.0000,aec-hor-2010-fp-by-party,2026-10-04
+2013,ON,0.17,0,150,0.0000,aec-hor-2013-fp-by-party,2026-10-04
+2016,ON,1.29,0,150,0.0000,aec-hor-2016-fp-by-party,2026-10-04
+2019,ON,3.08,0,151,0.0000,aec-hor-2019-fp-by-party,2026-10-04
+2022,ON,4.96,0,151,0.0000,aec-hor-2022-fp-by-party,2026-10-04
+2025,ON,6.4,0,151,0.0000,aec-hor-2025-fp-by-party,2026-10-04
