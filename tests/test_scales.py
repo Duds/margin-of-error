@@ -5,6 +5,7 @@ silent: inverted axes and a zero-width band that hid a published margin. A
 geometry bug in this project does not throw, it publishes a wrong chart.
 """
 
+import csv
 import re
 import sys
 import unittest
@@ -764,6 +765,67 @@ class TestChart02SeatShare(unittest.TestCase):
     CHART = Path(__file__).resolve().parent.parent / "charts" / "chart-02.svg"
     SOURCE = Path(__file__).resolve().parent.parent / "charts" / "chart_02.py"
 
+    def test_wide_labels_every_election_and_narrow_labels_the_endpoints(self):
+        """A membership test against pairs silently dropped every label.
+
+        The labelled set was written `[(0, len(rows) - 1)]`, so `i not in
+        labelled` was never true and all eighteen wide labels were skipped. The
+        chart still passed every overlap and off-canvas check, because there
+        was nothing left to collide with. Counting labels is what caught it.
+        """
+        root = Path(__file__).resolve().parent.parent / "charts"
+        wide = (root / "chart-02.svg").read_text()
+        narrow = (root / "chart-02-narrow.svg").read_text()
+        rows = list(
+            csv.DictReader(
+                (
+                    Path(__file__).resolve().parent.parent
+                    / "data"
+                    / "aec_election_results.csv"
+                ).open(encoding="utf-8")
+            )
+        )
+        years = [r["election_year"] for r in rows]
+        for year in years:
+            self.assertIn(f">{year}<", wide, f"{year} unlabelled on wide")
+        # Two per election on wide (year and share), so at least two per year.
+        self.assertGreaterEqual(wide.count("<text"), len(years) * 2)
+        # Narrow cannot fit nine: a 16px year label is wider than a narrow slot.
+        self.assertLess(narrow.count("<text"), wide.count("<text"))
+        self.assertIn(f">{years[0]}<", narrow)
+        self.assertIn(f">{years[-1]}<", narrow)
+        for hidden in years[1:-1]:
+            self.assertNotIn(f">{hidden}<", narrow, f"{hidden} should be dropped")
+
+    def test_no_wrapped_line_exceeds_its_text_budget(self):
+        """Wrapping is in user units, not characters.
+
+        16px IBM Plex Mono advances 9.632 units per character, so a 52-char
+        wrap needs 501 units in a 340-unit column. Wrapping by character count
+        left every narrow header line overrunning the canvas.
+        """
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "chart02", Path(__file__).resolve().parent.parent / "charts" / "chart_02.py"
+        )
+        chart02 = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(chart02)
+
+        bye = {"division": "Farrer", "year": 2026,
+               "primary_pct": 39.53, "tcp_pct": 57.55}
+        for viewport in ("wide", "narrow"):
+            budget = chart02.text_column(viewport)
+            blocks = chart02.header_blocks(viewport, bye)
+            for key in ("title", "note"):
+                for line in blocks[key]:
+                    units = len(line) * chart02.CHAR_UNITS_16
+                    self.assertLessEqual(
+                        units, budget,
+                        f"{viewport} {key} line {units:.0f}u over {budget:.0f}u: "
+                        f"{line!r}",
+                    )
+
     def test_farrer_is_an_annotation_and_never_a_point(self):
         """A by-election has its own electorate and its own denominator."""
         svg = self.CHART.read_text()
@@ -776,22 +838,134 @@ class TestChart02SeatShare(unittest.TestCase):
         self.assertIn("data-source-id=", svg)
         self.assertNotIn("data-unsourced", svg)
 
+    def test_every_declared_source_id_resolves_in_the_registry(self):
+        """`tools/build.py --check` passed while an id was unregistered.
+
+        The build only validates charts the template references, and Chart 02
+        is not in the template until the caption task. So a chart that is built
+        but not yet placed gets no source check at all, which is exactly when a
+        new id is most likely to be mistyped. This calls the build's own
+        validator directly so the gap is closed before the chart ships.
+        """
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "build", Path(__file__).resolve().parent.parent / "tools" / "build.py"
+        )
+        build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(build)
+
+        registry = build.data_sources()
+        for name in ("chart-02.svg", "chart-02-narrow.svg"):
+            svg = (
+                Path(__file__).resolve().parent.parent / "charts" / name
+            ).read_text()
+            self.assertEqual(
+                build.unsourced_figure_problems(name, svg, registry), []
+            )
+
+    def test_chart_02_source_ids_are_checked_directly_because_the_build_cannot(self):
+        """The build validates only charts the template references.
+
+        Chart 02 is built but not yet in the template, so
+        `tools/build.py --check` never reaches it — its source ids,
+        role="img" and print hatch are all outside the gate. That was how
+        `aec-hor-2025-fp-by-party` sat unregistered while the build reported
+        "check passed".
+
+        Rather than assert the gap stays open, this asserts the chart is
+        validated directly, so the missing placeholder cannot leave it
+        unvalidated. The placeholder arrives with the caption task; this test
+        keeps the chart honest until then and afterwards.
+        """
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "build", Path(__file__).resolve().parent.parent / "tools" / "build.py"
+        )
+        build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(build)
+
+        template = (
+            Path(__file__).resolve().parent.parent / "src" / "index.template.html"
+        ).read_text()
+        referenced = {"02"} if "<!-- chart:02 -->" in template else set()
+
+        root = Path(__file__).resolve().parent.parent / "charts"
+        registry = build.data_sources()
+        for name in ("chart-02.svg", "chart-02-narrow.svg"):
+            svg = (root / name).read_text()
+            self.assertEqual(
+                build.unsourced_figure_problems(name, svg, registry), []
+            )
+            self.assertIn('role="img"', svg)
+            self.assertIn('id="hatch-mo-print"', svg)
+
+        if not referenced:
+            # Until the caption task adds the placeholder, this test is the only
+            # thing checking Chart 02. Recorded so the gap is visible rather
+            # than assumed closed.
+            self.assertTrue(
+                (root / "chart-02.svg").exists(),
+                "Chart 02 is generated but neither referenced nor validatable.",
+            )
+
     def test_the_2004_to_2016_discontinuity_is_marked(self):
         svg = self.CHART.read_text()
         self.assertIn("2004", svg)
         self.assertIn("2016", svg)
 
     def test_generator_holds_no_dataset_literal(self):
-        """Seat counts and vote shares are read, never typed."""
+        """Seat counts and vote shares are read, never typed.
+
+        Matched as whole numbers, not substrings. A substring test cannot tell
+        a transcribed 4.3% from a 4.34% quoted in a docstring, which is the same
+        trap Task 3 hit with a panel fraction colliding with a poll result. So
+        the pattern requires the figure to end at a word boundary.
+        """
         src = self.SOURCE.read_text()
         for value in ("6.4", "4.3", "3.1", "0.66", "39.53", "57.55"):
-            self.assertNotIn(value, src, f"{value} is transcribed, not computed")
+            pattern = re.compile(rf"(?<![\d.]){re.escape(value)}(?![\d])")
+            self.assertIsNone(
+                pattern.search(src), f"{value} is transcribed, not computed"
+            )
 
     def test_chamber_size_is_stated_because_it_changed(self):
         """150 seats then 151. A reader cannot check the share without it."""
         svg = self.CHART.read_text()
-        self.assertIn("150", svg)
-        self.assertIn("151", svg)
+        self.assertIn("150-seat House", svg)
+        self.assertIn("151-seat House", svg)
+
+    def test_the_stated_chamber_boundary_matches_the_data(self):
+        """The subtitle is a computed sentence, so it can drift.
+
+        It once read "up to 2001", because the year was taken from the
+        thin-coverage block's start rather than from the chamber size. Both are
+        in the same data, unrelated to each other, and the sentence was wrong
+        while every other assertion still passed.
+        """
+        rows = list(
+            csv.DictReader(
+                (
+                    Path(__file__).resolve().parent.parent
+                    / "data"
+                    / "aec_election_results.csv"
+                ).open(encoding="utf-8")
+            )
+        )
+        small = min(int(r["chamber_size"]) for r in rows)
+        large = max(int(r["chamber_size"]) for r in rows)
+        last_small = max(
+            int(r["election_year"]) for r in rows if int(r["chamber_size"]) == small
+        )
+        first_large = min(
+            int(r["election_year"]) for r in rows if int(r["chamber_size"]) == large
+        )
+        svg = self.CHART.read_text()
+        self.assertIn(
+            f"from {rows[0]['election_year']} to {last_small}", svg
+        )
+        self.assertIn(f"House from {first_large}", svg)
 
     def test_chart_keeps_the_accessibility_floor(self):
         svg = self.CHART.read_text()

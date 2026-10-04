@@ -15,3 +15,8 @@ __pycache__/
 # Plan execution scratch: ledger, briefs, review packages. Git-ignored by
 # design; `git clean -fdx` destroys it, and progress is recovered from git log.
 .superpowers/
+
+# Browser verification artefacts. Screenshots and console logs written by the
+# Playwright MCP server during chart layout checks; the measurements that
+# matter are asserted in tests/test_scales.py, not kept as images.
+.playwright-mcp/

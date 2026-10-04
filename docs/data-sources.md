@@ -122,6 +122,105 @@ finding:          David Farley (One Nation) elected. TCP 58,294 (57.55%),
                   margin 15,302. First preferences 40,042 (39.53%).
 ```
 
+```
+source_id:        aec-hor-2025-fp-by-party
+title:            2025 federal election — House of Representatives,
+                  first preferences by party
+publisher:        Australian Electoral Commission
+tier:             A
+retrieved:        2026-10-04
+url:              https://results.aec.gov.au/31496/Website/Downloads/
+                  HouseFirstPrefsByPartyDownload-31496.csv
+event_id:         31496
+caveats:          identical schema to every other year; declared individually
+                  because the build resolves each id on a chart against this
+                  registry, and a family pattern would resolve nothing
+transformations:  none; TotalPercentage as published
+used_by:          chart-02
+finding:          ON 6.40% primary, 0 seats. The party's best federal primary
+                  vote in the series, and still nothing.
+```
+
+- 2026-10-04 — **House primary vote and seats won, nine general elections,
+  2001 to 2025.** Replaces the Roy Morgan cross-check as the source for
+  Chart 02. Both figures come from one AEC file per election.
+
+```
+source_id:        aec-hor-<year>-fp-by-party   (2004, 2007, 2010, 2013, 2016,
+                                               2019, 2022; 2025 above)
+title:            <year> federal election — House of Representatives,
+                  first preferences by party
+publisher:        Australian Electoral Commission
+tier:             A
+retrieved:        2026-10-04
+url:              https://results.aec.gov.au/<eventId>/Website/Downloads/
+                  HouseFirstPrefsByPartyDownload-<eventId>.csv
+event_ids:        2004 12246, 2007 13745, 2010 15508, 2013 17496,
+                  2016 20499, 2019 24310, 2022 27966, 2025 31496
+covers:           national; first preferences by party, with elected count
+caveats:          every file opens with a bracketed metadata banner line
+                  before the header, so DictReader straight onto the file
+                  reads the banner as the header
+transformations:  TotalPercentage as published, 2dp; seats from the Elected
+                  column, cross-checked against the separate party
+                  representation download
+used_by:          chart-02
+files:            data/aec/raw/house-first-prefs-by-party-<year>.csv
+finding:          Party recorded under a different name in every era. HAN in
+                  2001 and 2004, ON from 2007; "Pauline Hanson's One Nation"
+                  only from 2019. Matching on the modern name drops five of
+                  the nine elections. Seats won: zero at every election.
+```
+
+```
+source_id:        aec-hor-2001-fp-by-party
+title:            2001 federal election — House of Representatives, national
+                  first preferences by party
+publisher:        Australian Electoral Commission
+tier:             A
+retrieved:        2026-10-04
+url:              https://www.aec.gov.au/About_AEC/Publications/statistics/
+                  files/aec-2001-election-statistics.zip
+covers:           national; first preferences by party; members elected
+caveats:          the AEC publishes no CSV for 2001 and its live tally room
+                  (results.aec.gov.au/10822) carries a standing disclaimer
+                  that its results "are not final". These figures come from
+                  the official published statistics instead, which are
+                  final. The file is fixed-width and repeats the party once
+                  per state, so the national row must be selected by section:
+                  scanning for the first matching line returns Queensland's
+                  7.07% against the national 4.34%
+transformations:  none; National Summary block of v1_6.txt, party code HAN
+used_by:          chart-02
+files:            data/aec/raw/2001/house-first-prefs-by-party-2001.txt,
+                  house-members-elected-2001.txt, party-representation-2001.txt,
+                  code-2001.txt
+finding:          HAN 4.34% primary, 0 of 150 seats. The AEC's own code table
+                  (code-2001.txt) records HAN as "Pauline Hanson's One
+                  Nation". Confirms Roy Morgan's 4.3% cross-check. Two
+                  independent tables agree: the House party representation
+                  table has no HAN column at all, and the members elected
+                  list carries 150 members with no HAN code.
+```
+
+- 2026-10-04 — **The House has not always had 151 seats.** Verified by summing
+  every party's national total in each AEC party representation download:
+
+```
+source_id:        aec-hor-<year>-party-rep
+title:            <year> federal election — House of Representatives,
+                  party representation
+publisher:        Australian Electoral Commission
+tier:             A
+retrieved:        2026-10-04
+used_by:          chart-02
+finding:          150 seats in 2001, 2004, 2007, 2010, 2013 and 2016;
+                  151 from 2019. A seat share computed against a fixed 151
+                  understates every earlier share by a twentieth, and the
+                  error is invisible because the seat line is drawn against
+                  zero either way.
+```
+
 - 2026-10-03 — By-election sweep. Checked every federal House by-election in
   the AEC archive from 2005 to 2026 (24 events). One Nation candidates stood
   in Cook 2024, Dunkley 2024, Fadden 2023, Aston 2023 and Farrer 2026. Only

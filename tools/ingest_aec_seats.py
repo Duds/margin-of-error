@@ -319,6 +319,42 @@ def main() -> int:
         writer.writeheader()
         writer.writerows(rows)
 
+    # The by-election goes in its own file. It is a different kind of event on a
+    # different denominator, and putting it in the general-election CSV would
+    # invite exactly the comparison Chart 02 is required not to make.
+    farrer = farrier_figures()
+    bye_path = OUT.with_name("aec_by_election.csv")
+    with bye_path.open("w", encoding="utf-8", newline="") as fh:
+        writer = csv.writer(fh)
+        writer.writerow(
+            [
+                "election_year",
+                "event_type",
+                "division",
+                "party_ab",
+                "primary_vote_pct",
+                "two_party_preferred_pct",
+                "chamber_size",
+                "plottable_on_general_election_series",
+                "source_id",
+                "retrieved",
+            ]
+        )
+        writer.writerow(
+            [
+                2026,
+                "by_election",
+                "Farrer",
+                "ON",
+                f"{farrer['primary_pct']:g}",
+                f"{farrer['tcp_pct']:g}",
+                "",  # one division, not the House
+                "no",
+                "aec-by-farrer-2026",
+                date.today().isoformat(),
+            ]
+        )
+
     print(f"wrote {OUT.relative_to(ROOT)} ({len(rows)} elections)")
     for r in rows:
         print(
@@ -417,6 +453,85 @@ def seats_from_members_elected_2001() -> int:
             f"column being read is probably not the party code."
         )
     return elected
+
+
+
+
+# --- Farrer 2026 by-election -----------------------------------------------
+#
+# Annotated on Chart 02, never plotted on it: a by-election is one division on
+# its own electorate, so its shares have no denominator comparable to the 150 or
+# 151 seats of a general election. These figures are read from the same AEC page
+# rather than typed, so the annotation cannot drift from its source.
+
+FARRER_HTML = RAW / "2026-farrer" / "house-division-farrer-2026.html"
+FARRER_SUMMARY = re.compile(
+    r"(?P<name>[A-Z][A-Z]+,\s*[A-Z][a-z]+)\s+One Nation\s+(?P<votes>[\d,]+)\s+"
+    r"(?P<pct>[\d.]+)",
+)
+FARRER_TCP = re.compile(
+    r"(?P<name>[A-Z][A-Z]+,\s*[A-Z][a-z]+)\s+One Nation\s+[\d,]+\s+"
+    r"[\d,]+\s+(?P<pct>[\d.]+)\s+0\.00",
+)
+
+
+def farrier_figures() -> dict:
+    """First preference and two-candidate preferred shares, Farrer 2026.
+
+    The page carries several tables for the same candidate — first preferences,
+    two-candidate preferred, and per-polling-place breakdowns — so both figures
+    are taken only from the two national summary rows. A scan for the first
+    match picks up the polling-place table, where the same candidate reads
+    39.73 rather than 39.53.
+
+    The rows are told apart by their shape, not their position. After the
+    candidate and party, a two-candidate preferred row carries votes, a margin,
+    the percentage, a swing and a sign; a first preference row carries votes,
+    the percentage and a signed swing, with no margin column. Reading by column
+    position would have taken the margin as the share.
+    """
+    if not FARRER_HTML.exists():
+        raise SourceShapeChanged(f"{FARRER_HTML} is missing. Re-fetch and re-verify.")
+
+    text = FARRER_HTML.read_text(encoding="latin-1")
+    flat = re.sub(r"<[^>]+>", "\n", text).replace("&nbsp;", " ")
+    lines = [re.sub(r"\s+", " ", x).strip() for x in flat.split("\n")]
+    lines = [x for x in lines if x]
+
+    number = re.compile(r"^[+-]?[\d,]+(?:\.\d+)?$")
+
+    first_pct = tcp_pct = None
+    for i, line in enumerate(lines):
+        if not line.upper().startswith("FARLEY, DAVID"):
+            continue
+        # The next cell is the party; only the national summary rows carry the
+        # party's registered name, while polling-place rows are bare numbers.
+        if i + 2 >= len(lines) or lines[i + 1] != "One Nation":
+            continue
+
+        figures: list[str] = []
+        j = i + 2
+        while j < len(lines) and number.match(lines[j]):
+            figures.append(lines[j])
+            j += 1
+        if j >= len(lines) or lines[j] != "Elected":
+            continue
+
+        # votes, margin, percentage, swing  ->  two-candidate preferred
+        if len(figures) >= 4:
+            if tcp_pct is None:
+                tcp_pct = float(figures[2].replace(",", ""))
+        # votes, percentage, signed swing  ->  first preference
+        elif len(figures) == 3 and first_pct is None:
+            first_pct = float(figures[1].replace(",", ""))
+
+    if first_pct is None or tcp_pct is None:
+        raise SourceShapeChanged(
+            f"{FARRER_HTML.name}: could not read the Farrer first preference or "
+            f"two-candidate preferred summary. Refusing to substitute a figure."
+        )
+    return {"primary_pct": first_pct, "tcp_pct": tcp_pct}
+
 
 
 if __name__ == "__main__":
