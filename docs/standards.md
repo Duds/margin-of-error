@@ -144,3 +144,29 @@ or navigating by keyboard is a first-class reader of this site.
   record the retrieval date in the dataset, not the filename.
 - Each dataset carries a `method.md` note: what was dropped, what was joined,
   what assumptions were made, what a reader would need to reproduce the result.
+
+---
+
+## Discarded work
+
+Disproved work is recorded, not deleted. `AGENTS.md` non-negotiable 6 makes
+`docs/corrections.md` append-only and public for the same reason: a reader who
+finds the current page wrong must be able to see what changed.
+
+- Superseded and rejected material lives in `docs/archive/`.
+- Filename is the **date the work was discarded**, then a slug:
+  `2026-10-03-political-feasibility-report.md`. The date sorts the archive and
+  puts each file on the same timeline as the `TASKS.md` `## Events` entry
+  explaining the rejection.
+- Every archived file opens with a banner stating **why it was discarded, why
+  it cannot be cited, and where the replacement lives.** An archive that only
+  says "old, do not use" leaves the next reader to rediscover the reasoning.
+- The banner states **which claims in the document are wrong**, with the
+  correction and its source, not merely that the document is out of date. The
+  archived feasibility report claimed 0 lower house seats; the AEC-verified
+  figure is 1. A reader who saw only "ARCHIVED" would carry the 0 forward.
+- The body below the banner stays **verbatim**, including its own errors. It is
+  the evidence for the decision, so editing it would destroy the reason the
+  archive exists.
+- Nothing in `docs/archive/` may be cited, linked from the page, or used as a
+  source. A figure does not leave the archive by being copied once.
