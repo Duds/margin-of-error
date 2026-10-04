@@ -26,6 +26,7 @@ Usage: python3 charts/chart_01.py
 """
 
 import sys
+import textwrap
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -45,16 +46,20 @@ WINDOW = 12
 # equals the rendered track width (1072, not the nominal 1120) so 16px in the
 # SVG is 16px on screen and the DESIGN.md label floor is met exactly.
 VIEWPORTS = {
-    "wide": {"w": 1072, "h": 560, "plot": Box(left=104, right=1044, top=56, bottom=248)},
-    "narrow": {"w": 420, "h": 520, "plot": Box(left=64, right=404, top=52, bottom=250)},
+    "wide": {"w": 1072, "h": 640, "plot": Box(left=104, right=1044, top=56, bottom=330)},
+    "narrow": {"w": 420, "h": 620, "plot": Box(left=64, right=404, top=52, bottom=342)},
 }
 
 # Panel geometry, as a fraction of the plot box. Kept as ratios so the narrow
 # variant needs no separate numbers.
-GAP_PANEL_TOP = 0.10
-GAP_PANEL_BOTTOM = 0.46
-SPAN_PANEL_TOP = 0.60
-SPAN_PANEL_BOTTOM = 0.94
+# Fractions of the plot box. Panel 1 leaves room below gap_bottom for its own
+# year and value labels; panel 2's title then starts clear of them, which is
+# what the first two passes got wrong: span_top-14 landed at y=195.1 while the
+# year label sat at y=196.7, so the two drew through each other.
+GAP_PANEL_TOP = 0.08
+GAP_PANEL_BOTTOM = 0.34
+SPAN_PANEL_TOP = 0.56
+SPAN_PANEL_BOTTOM = 0.86
 
 
 def load_results() -> list[Result]:
@@ -103,6 +108,26 @@ def build_panels() -> dict:
     }
 
 
+
+def step_for_height(lo: float, hi: float, height: float, label_px: float = 16) -> float:
+    """The coarsest tick step whose labels still fit the space available.
+
+    Picking a step from the data range alone puts nine ticks in 76px, which is
+    not a density problem you can read past. A label needs its own height in
+    clear space, so the count of intervals is capped by the panel, and the
+    step is then the first "nice" value at or above what that cap requires.
+    """
+    span = abs(hi - lo)
+    if span <= 0:
+        return 1.0
+    max_intervals = max(1, int(height // (label_px * 1.6)))
+    needed = span / max_intervals
+    for candidate in (0.1, 0.2, 0.25, 0.5, 1, 2, 2.5, 5, 10, 20, 25, 50):
+        if candidate >= needed:
+            return candidate
+    return 100.0
+
+
 def gap_scale(plot: Box, values: list[float], span: float) -> Scale:
     """A scale centred on zero, symmetric, so the axis cannot flatter the data."""
     reach = max(abs(min(values)), abs(max(values)))
@@ -126,25 +151,37 @@ def render(viewport: str, panels: dict) -> str:
     signed = [g.signed_gap for g in gs]
 
     gap_plot = Box(left=plot.left, right=plot.right, top=gap_top, bottom=gap_bottom)
-    step = 0.5 if max(abs(min(signed)), abs(max(signed))) < 2 else 1
-    gap_y = Scale(d0=0, d1=1, r0=gap_bottom, r1=gap_top)
-    g_lo, g_hi = nice_domain(
-        -max(abs(min(signed)), abs(max(signed))) * 1.5,
-        max(abs(min(signed)), abs(max(signed))) * 1.5,
-        step,
-    )
+    reach = max(abs(min(signed)), abs(max(signed))) * 1.35
+    step = step_for_height(-reach, reach, gap_bottom - gap_top)
+    g_lo, g_hi = nice_domain(-reach, reach, step)
     gap_y = Scale(d0=g_lo, d1=g_hi, r0=gap_bottom, r1=gap_top)
-    gap_ticks = ticks(*nice_domain(g_lo, g_hi, step), step)
+    gap_ticks = [v for v in ticks(g_lo, g_hi, step) if g_lo <= v <= g_hi]
 
+    # DESIGN.md forbids a truncated y-axis, so this starts at zero. It also
+    # refuses to scale far past the data: the first pass ran 0 to 6 for values
+    # living in 3.0 to 5.0, which left each span using a third of its height and
+    # made the 2022 result sitting at the top of its span hard to see, which is
+    # the single fact this panel exists to show.
     all_values = [v for g in gs for v in (g.mean, g.result)] + [
         panels["means"][g.year].low for g in gs
     ] + [panels["means"][g.year].high for g in gs]
-    v_lo, v_hi = nice_domain(0, max(all_values) * 1.12, 1)
+    ceiling = max(all_values)
+    v_step = step_for_height(0, ceiling * 1.08, span_bottom - span_top)
+    v_lo, v_hi = nice_domain(0, ceiling * 1.08, v_step)
     span_y = Scale(d0=v_lo, d1=v_hi, r0=span_bottom, r1=span_top)
 
     n = len(gs)
     slot = (gap_plot.right - gap_plot.left) / n
     bar_w = min(slot * 0.34, 120)
+
+    # Type sizes are attributes, not classes. The stylesheet carries no SVG
+    # text rules, so a class name would size nothing and every label would fall
+    # to the 16px default, which the viewBox then scales. DESIGN.md's floor is
+    # 16px *measured*, so the sizes below are the measured values.
+    tick = 16
+    strong = 17
+    value = 19
+    title = 18
 
     out: list[str] = []
     out.append(
@@ -178,8 +215,8 @@ def render(viewport: str, panels: dict) -> str:
 
     # ---- Panel 1: the gap -------------------------------------------------
     out.append(
-        f'<text x="{gap_plot.left}" y="{gap_top - 14}" class="panel-title">'
-        f"Polling minus result, percentage points</text>"
+        f'<text x="{gap_plot.left}" y="{gap_top - 14}" font-size="{title}" '
+        f'fill="var(--color-ink)">Polling minus result, percentage points</text>'
     )
     zero_y = gap_y(0)
     for tv in gap_ticks:
@@ -197,7 +234,8 @@ def render(viewport: str, panels: dict) -> str:
             label = "0" if is_zero else f"{tv:g}"
             out.append(
                 f'<text x="{gap_plot.left - 10}" y="{ty + 4:.1f}" '
-                f'text-anchor="end" class="tick">{label}</text>'
+                f'font-size="{tick}" text-anchor="end" '
+                f'fill="var(--color-ink-muted)">{label}</text>'
             )
 
     for i, g in enumerate(gs):
@@ -211,22 +249,28 @@ def render(viewport: str, panels: dict) -> str:
         )
         out.append(
             f'<text x="{cx:.1f}" y="{gap_bottom + 34}" text-anchor="middle" '
-            f'class="tick-strong">{g.year}</text>'
+            f'font-size="{strong}" text-anchor="middle" '
+            f'fill="var(--color-ink)">{g.year}</text>'
         )
         label_y = top - 10 if g.signed_gap > 0 else bottom + 20
         out.append(
             f'<text x="{cx:.1f}" y="{label_y:.1f}" text-anchor="middle" '
-            f'class="value">{fmt_signed(g.signed_gap)}</text>'
+            f'font-size="{value}" text-anchor="middle" '
+            f'fill="var(--color-ink)">{fmt_signed(g.signed_gap)}</text>'
         )
 
     # ---- Panel 2: the evidence -------------------------------------------
+    # Clearance is measured against the label's bounding box, not its ink:
+    # getBBox on a 18px line is ~23px tall, which is why span_top-14 landed
+    # inside the year labels at y=166-188 rather than below them.
     out.append(
-        f'<text x="{plot.left}" y="{span_top - 14}" class="panel-title">'
-        f"Where polling sat before each election, and what the ballot gave</text>"
+        f'<text x="{plot.left}" y="{max(span_top - 14, gap_bottom + 78):.1f}" '
+        f'font-size="{title}" fill="var(--color-ink)">Where polling sat before '
+        f'each election, and what the ballot gave</text>'
     )
 
     span_slot = (plot.right - plot.left) / n
-    for v in ticks(*nice_domain(v_lo, v_hi, 1), 1):
+    for v in [x for x in ticks(v_lo, v_hi, v_step) if v_lo <= x <= v_hi]:
         ty = span_y(v)
         if not (span_top - 1 <= ty <= span_bottom + 1):
             continue
@@ -240,7 +284,8 @@ def render(viewport: str, panels: dict) -> str:
         if not narrow or is_zero or int(v) % 2 == 0:
             out.append(
                 f'<text x="{plot.left - 10}" y="{ty + 4:.1f}" '
-                f'text-anchor="end" class="tick">{v:g}</text>'
+                f'font-size="{tick}" text-anchor="end" '
+                f'fill="var(--color-ink-muted)">{v:g}</text>'
             )
 
     for i, g in enumerate(gs):
@@ -263,24 +308,35 @@ def render(viewport: str, panels: dict) -> str:
             f'y2="{r_y:.1f}" stroke="var(--color-ink)" stroke-width="2.5" />'
         )
         out.append(
-            f'<text x="{cx:.1f}" y="{span_bottom + 26}" text-anchor="middle" '
-            f'class="tick">{m.low:g}&#8211;{m.high:g}% polled</text>'
+            f'<text x="{cx:.1f}" y="{span_bottom + 26}" font-size="{tick}" '
+            f'text-anchor="middle" fill="var(--color-ink-muted)">'
+            f'{m.low:g}&#8211;{m.high:g}% polled</text>'
         )
         out.append(
-            f'<text x="{cx:.1f}" y="{span_bottom + 42}" text-anchor="middle" '
-            f'class="tick">{m.n_used} waves, mean {m.value:.2f}%</text>'
+            f'<text x="{cx:.1f}" y="{span_bottom + 50}" font-size="{tick}" '
+            f'text-anchor="middle" fill="var(--color-ink-muted)">'
+            f'{m.n_used} waves, mean {m.value:.2f}%</text>'
         )
         out.append(
-            f'<text x="{cx:.1f}" y="{span_bottom + 58}" text-anchor="middle" '
-            f'class="tick-strong">result {g.result:g}%</text>'
+            f'<text x="{cx:.1f}" y="{span_bottom + 74}" font-size="{strong}" '
+            f'text-anchor="middle" fill="var(--color-ink)">'
+            f'result {g.result:g}%</text>'
         )
 
-    out.append(
-        f'<text x="{plot.left}" y="{h - 14}" class="footnote">'
-        f"{panels['waves']} of {panels['waves']} waves publish no margin of error, "
-        f"no sample size and no publication date. No interval is drawn or "
-        f"imputed.</text>"
+    # Wrapped rather than one long line: a single line measured 1208 units in a
+    # 1072 box, so it ran off the right edge and was clipped. Roughly 76
+    # characters per line at 16px monospace in this viewport.
+    note = (
+        f"{panels['waves']} of {panels['waves']} waves publish no margin of "
+        f"error, no sample size and no publication date."
     )
+    note_lines = textwrap.wrap(note, width=76)
+    note_y = h - 16 - (len(note_lines) - 1) * 22
+    for i, line in enumerate(note_lines):
+        out.append(
+            f'<text x="{plot.left}" y="{note_y + i * 22}" font-size="{tick}" '
+            f'fill="var(--color-ink-muted)">{line}</text>'
+        )
     out.append("</svg>")
     return "\n".join(out)
 
