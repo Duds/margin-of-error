@@ -194,7 +194,15 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   > Form: spine chart of poll-minus-result from a zero rule, with the evidence
   > beneath it as a per-election vertical span of the preceding range, not a line
   > across 48 waves (a line would assert values between fortnightly snapshots
-  > that nobody measured).
+  > that nobody measured). **Refined after approval:** the spans moved from a
+  > separate figure to a second panel within the spine, so claim and evidence
+  > read together and the page resolves to two charts.
+  > **Chart 02 (seat efficiency) added at Dale's direction** and specced in the
+  > same document: national primary vote against seat share, both as a share of
+  > the 151-seat House, gap shaded. That is editorial Chart 04 moved earlier
+  > because the data exists now. **Provisional — Dale decides after seeing it
+  > rendered.** Shares no data or code with Chart 01 beyond `stats.py`, so
+  > cutting it later costs nothing.
   > **Two corrections found by recomputing from source during spec review.**
   > The wave count is **48, not 49** — the table yields 49 rows with a discrete
   > figure but one is the 2019 election *result*, not a poll. And the 2019 window

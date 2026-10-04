@@ -103,6 +103,16 @@ preferences are counted.
 
 ## Chart 04 — Seat share against vote share
 
+> **MOVED FORWARD 2026-10-04.** Now specced in full as **Chart 02** in
+> `docs/superpowers/specs/2026-10-04-chart-01-polling-vs-result-design.md`, at
+> Dale's direction to build it alongside the polling chart. Numbering in this
+> document is retained for continuity; the build order is 01 then 02.
+>
+> **Provisional, and awaiting a keep-or-cut decision.** Dale will decide whether
+> it stays after seeing it rendered. It is built behind the same AEC gate as
+> Chart 01 and shares no data or code with it beyond `charts/stats.py`, so
+> cutting it later costs nothing.
+
 **Provisional purpose.** Vote efficiency: seats won per point of vote.
 
 - **Question it answers:** is the party getting more or less out of its vote than
@@ -112,6 +122,9 @@ preferences are counted.
   shade it rather than annotating it.
 - **Must not:** use seat share from a chamber that is not a single elected body.
   House and Senate are not comparable and must not share an axis.
+- **Must not:** plot the Farrer 2026 by-election on the general-election line.
+  Different electorate, different field, different denominator. It is an
+  annotation on the chart, never a point on the series.
 
 ---
 
