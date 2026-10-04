@@ -520,5 +520,125 @@ class TestDiscreteOneNationIngest(unittest.TestCase):
                         f"no warning named 2015: {warnings}")
 
 
+
+class TestStatsWindowMean(unittest.TestCase):
+    """Every derived number is computed here and nowhere else.
+
+    Each function returning a figure also returns n_used, so no caller can
+    receive a bare float and label it with the wrong wave count.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "stats", Path(__file__).resolve().parent.parent / "charts" / "stats.py"
+        )
+        cls.stats = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.stats)
+
+    def polls(self, year, values):
+        return [self.stats.Poll(year=year, wave=f"w{i}", value=v,
+                                fielded_start=f"{year}-01-{i + 1:02d}",
+                                fielded_end=f"{year}-01-{i + 1:02d}")
+                for i, v in enumerate(values)]
+
+    def test_mean_carries_the_count_actually_used(self):
+        """Five waves exist before 2019. The mean uses five, and says so."""
+        m = self.stats.window_mean(self.polls(2019, [3.0, 4.0, 3.5, 3.5, 4.5]),
+                                   2019, window=12)
+        self.assertEqual(m.n_used, 5)
+        self.assertEqual(m.window, 12)
+        self.assertAlmostEqual(m.value, 3.7, places=6)
+
+    def test_low_and_high_come_from_the_same_waves_as_the_mean(self):
+        m = self.stats.window_mean(self.polls(2022, [3.0, 5.0, 4.0]), 2022, window=12)
+        self.assertEqual(m.low, 3.0)
+        self.assertEqual(m.high, 5.0)
+
+    def test_no_waves_returns_none_rather_than_a_shorter_window(self):
+        self.assertIsNone(self.stats.window_mean([], 2019, window=12))
+
+    def test_window_truncates_to_the_most_recent(self):
+        m = self.stats.window_mean(self.polls(2022, [9.0, 9.0, 1.0, 1.0]), 2022, window=2)
+        self.assertAlmostEqual(m.value, 1.0)
+        self.assertEqual(m.n_used, 2)
+
+    def test_gap_is_poll_minus_result(self):
+        gaps = self.stats.gaps(
+            [self.stats.Result(year=2022, value=5.0, confirmed=False)],
+            self.polls(2022, [3.5, 4.0, 3.5, 3.5]), window=12)
+        self.assertAlmostEqual(gaps[0].signed_gap, 3.625 - 5.0)
+        self.assertEqual(gaps[0].n_used, 4)
+
+    def test_gap_skips_an_election_with_no_polling(self):
+        gaps = self.stats.gaps(
+            [self.stats.Result(year=2025, value=6.4, confirmed=False)],
+            self.polls(2022, [3.5, 4.0]), window=12)
+        self.assertEqual(gaps, [])
+
+    def test_contiguous_years_spans_the_dense_years(self):
+        polls = (self.polls(2018, [3.0]) + self.polls(2019, [3.0])
+                 + self.polls(2020, [3.0]))
+        self.assertEqual(self.stats.contiguous_years(polls), (2018, 2020))
+
+    def test_contiguous_years_ignores_an_isolated_year(self):
+        """2022 sits alone, so the run is 2018-2020 and not 2018-2022."""
+        polls = (self.polls(2018, [3.0]) + self.polls(2019, [3.0])
+                 + self.polls(2020, [3.0]) + self.polls(2022, [4.0]))
+        self.assertEqual(self.stats.contiguous_years(polls), (2018, 2020))
+
+    def test_contiguous_years_does_not_bridge_a_gap(self):
+        """A 2021 gap must not be silently absorbed into one run."""
+        polls = (self.polls(2018, [3.0]) + self.polls(2019, [3.0])
+                 + self.polls(2021, [3.0]) + self.polls(2022, [3.0]))
+        self.assertEqual(self.stats.contiguous_years(polls), (2018, 2019))
+
+    def test_load_polls_rejects_an_undated_wave(self):
+        """Review Focus 1: an undated poll cannot be placed on a time axis."""
+        import csv as _csv
+        import tempfile as _tf
+        with _tf.NamedTemporaryFile("w", suffix=".csv", delete=False) as fh:
+            fh.write("year,wave_label,fielded_start,fielded_end,pvi_oned\n")
+            fh.write("2022,April 4,,2022-04-10,4.5\n")
+            path = fh.name
+        with self.assertRaises(ValueError) as ctx:
+            self.stats.load_polls(path)
+        self.assertIn("fielded_start", str(ctx.exception))
+
+    def test_load_polls_rejects_an_empty_party_figure(self):
+        import csv as _csv
+        import tempfile as _tf
+        with _tf.NamedTemporaryFile("w", suffix=".csv", delete=False) as fh:
+            fh.write("year,wave_label,fielded_start,fielded_end,pvi_oned\n")
+            fh.write("2022,April 4,2022-04-04,2022-04-10,\n")
+            path = fh.name
+        with self.assertRaises(ValueError):
+            self.stats.load_polls(path)
+
+    def test_load_polls_reads_the_real_csv(self):
+        """48 waves, 2018 to 2022, as verified in task 1."""
+        csv_path = (Path(__file__).resolve().parent.parent
+                    / "data" / "polls_roymorgan_oned.csv")
+        polls = self.stats.load_polls(csv_path)
+        self.assertEqual(len(polls), 48)
+        self.assertEqual(min(p.year for p in polls), 2018)
+        self.assertEqual(max(p.year for p in polls), 2022)
+
+    def test_real_data_means_match_the_spec_claim(self):
+        """The spec states 3.70 from 5 waves and 3.71 from 12. If these drift,
+        the published claim has drifted with them."""
+        csv_path = (Path(__file__).resolve().parent.parent
+                    / "data" / "polls_roymorgan_oned.csv")
+        polls = self.stats.load_polls(csv_path)
+        m2019 = self.stats.window_mean(polls, 2019, window=12)
+        m2022 = self.stats.window_mean(polls, 2022, window=12)
+        self.assertEqual(m2019.n_used, 5)
+        self.assertEqual(m2022.n_used, 12)
+        self.assertAlmostEqual(m2019.value, 3.70, places=2)
+        self.assertAlmostEqual(m2022.value, 3.71, places=2)
+
+
 if __name__ == "__main__":
     unittest.main()
