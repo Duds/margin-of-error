@@ -5,6 +5,7 @@ silent: inverted axes and a zero-width band that hid a published margin. A
 geometry bug in this project does not throw, it publishes a wrong chart.
 """
 
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -638,6 +639,60 @@ class TestStatsWindowMean(unittest.TestCase):
         self.assertEqual(m2022.n_used, 12)
         self.assertAlmostEqual(m2019.value, 3.70, places=2)
         self.assertAlmostEqual(m2022.value, 3.71, places=2)
+
+
+
+class TestChart01IsDataDriven(unittest.TestCase):
+    """Chart 01 draws figures it computed, not figures someone typed."""
+
+    CHART = Path(__file__).resolve().parent.parent / "charts" / "chart-01.svg"
+    SOURCE = Path(__file__).resolve().parent.parent / "charts" / "chart_01.py"
+
+    def test_generator_holds_no_dataset_literal(self):
+        """The dataset must not appear as a typed constant.
+
+        A figure transcribed into a generator is a figure that stops agreeing
+        with its data, and nothing notices.
+        """
+        src = self.SOURCE.read_text()
+        # Only figures that could only have come from the dataset. Layout
+        # numbers like 0.60 or 5.0 are excluded: a substring test cannot tell a
+        # panel fraction from a poll result, so this asserts the figures that
+        # are unambiguous and the rendering is checked by eye in task 8.
+        for value in ("3.70", "3.71", "1.29", "4.5", "4.0"):
+            self.assertNotIn(value, src, f"{value} is transcribed, not computed")
+
+    def test_output_declares_its_source_and_not_placeholder(self):
+        svg = self.CHART.read_text()
+        self.assertIn('data-source-id="roymorgan-pvi"', svg)
+        self.assertNotIn('data-unsourced', svg)
+
+    def test_each_panel_labels_the_wave_count_it_used(self):
+        """Review Focus 3: the label is bound to the arithmetic."""
+        svg = self.CHART.read_text()
+        self.assertIn("5 waves", svg)
+        self.assertIn("12 waves", svg)
+
+    def test_chart_still_carries_the_accessibility_floor(self):
+        svg = self.CHART.read_text()
+        self.assertIn('role="img"', svg)
+        self.assertIn("<title", svg)
+        self.assertIn("<desc", svg)
+        self.assertIn('id="hatch-mo-print"', svg)
+
+    def test_chart_states_that_no_wave_carries_a_margin(self):
+        """Non-negotiable 5. The absence has to be on the chart."""
+        desc = self.CHART.read_text()
+        self.assertIn("no margin of error", desc)
+
+    def test_chart_reports_both_directions_of_gap(self):
+        """The finding is that polling was high in 2019 and low in 2022."""
+        svg = self.CHART.read_text()
+        labels = re.findall(r'class="value">([^<]*)<', svg)
+        self.assertEqual(len(labels), 2, f"expected two gap labels, got {labels}")
+        self.assertTrue(labels[0].startswith("+"), f"2019 should be polling high: {labels[0]}")
+        self.assertTrue(labels[1].startswith("\u2212"),
+                        f"2022 should use a true minus sign: {labels[1]!r}")
 
 
 if __name__ == "__main__":

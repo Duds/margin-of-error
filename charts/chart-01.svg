@@ -1,24 +1,58 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1072 520" class="chart" role="img" aria-labelledby="chart-01-title chart-01-desc" data-unsourced="true" font-family="IBM Plex Mono, ui-monospace, monospace" style="aspect-ratio: 1072 / 520; font-variant-numeric: tabular-nums">
-<title id="chart-01-title">One Nation primary vote intention, polls by year, with published margins of error. Placeholder figures, not published.</title>
-<desc id="chart-01-desc">A time series of poll estimates from 1996 to 2004 plotted against election year. 3 of 4 polls carry a published margin of error, drawn as a hatched band where two or more are adjacent, and as a capped vertical whisker where a single bounded poll stands alone. 1 poll published no margin of error and is drawn as an open circle, with no interval imputed. The y axis runs from 0 to 10 per cent and is not truncated. Fills use the page semantic tokens. These are placeholder figures and are not published.</desc>
-<defs><pattern id="hatch-mo" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="4" stroke="currentColor" stroke-width="1" /></pattern><pattern id="hatch-mo-print" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="currentColor" stroke-width="1.6" /></pattern></defs>
-<line x1="92" y1="440.0" x2="1044" y2="440.0" stroke="var(--color-rule)" stroke-width="1" />
-<text x="82" y="444.0" text-anchor="end" font-size="16" fill="var(--color-ink-muted)">0%</text>
-<text x="82" y="362.4" text-anchor="end" font-size="16" fill="var(--color-ink-muted)">2%</text>
-<text x="82" y="280.8" text-anchor="end" font-size="16" fill="var(--color-ink-muted)">4%</text>
-<text x="82" y="199.2" text-anchor="end" font-size="16" fill="var(--color-ink-muted)">6%</text>
-<text x="82" y="117.6" text-anchor="end" font-size="16" fill="var(--color-ink-muted)">8%</text>
-<text x="82" y="36.0" text-anchor="end" font-size="16" fill="var(--color-ink-muted)">10%</text>
-<line x1="92.0" y1="256.4" x2="92.0" y2="134.0" stroke="var(--band-edge)" stroke-width="1" /><line x1="86.0" y1="256.4" x2="98.0" y2="256.4" stroke="var(--band-edge)" stroke-width="1" /><line x1="86.0" y1="134.0" x2="98.0" y2="134.0" stroke="var(--band-edge)" stroke-width="1" />
-<polygon points="687.0,195.2 1044.0,113.6 1044.0,236.0 687.0,317.6" fill="url(#hatch-mo)" class="band" color="var(--color-ink-muted)" stroke="var(--band-edge)" stroke-width="1" stroke-dasharray="4 3" />
-<polyline points="92.0,195.2 330.0,72.8 687.0,256.4 1044.0,174.8" fill="none" stroke="var(--color-ink)" stroke-width="2" data-draw-path />
-<circle cx="92.0" cy="195.2" r="4" fill="var(--color-ink)" />
-<circle cx="330.0" cy="72.8" r="5" fill="none" stroke="var(--color-ink-muted)" stroke-width="1.5" />
-<circle cx="687.0" cy="256.4" r="4" fill="var(--color-ink)" />
-<circle cx="1044.0" cy="174.8" r="4" fill="var(--color-ink)" />
-<text x="92.0" y="470" text-anchor="middle" font-size="16" fill="var(--color-ink-muted)">1996</text>
-<text x="330.0" y="470" text-anchor="middle" font-size="16" fill="var(--color-ink-muted)">1998</text>
-<text x="687.0" y="470" text-anchor="middle" font-size="16" fill="var(--color-ink-muted)">2001</text>
-<text x="1044.0" y="470" text-anchor="middle" font-size="16" fill="var(--color-ink-muted)">2004</text>
-<text x="82" y="20" text-anchor="end" font-size="14" fill="var(--color-ink-muted)">Primary vote, per cent</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1072 560" class="chart" role="img" aria-labelledby="chart-01-title chart-01-desc" data-source-id="roymorgan-pvi" font-family="IBM Plex Mono, ui-monospace, monospace" style="aspect-ratio: 1072 / 560; font-variant-numeric: tabular-nums">
+<title id="chart-01-title">Polling against the result, One Nation primary vote, federal elections 2019 and 2022</title>
+<desc id="chart-01-desc">A two-panel chart. The upper panel shows polling minus result in percentage points for 2 federal elections, drawn from a zero rule so the axis is centred on the quantity being measured. The lower panel shows, for each election, the span of polling values published in the preceding waves as a vertical bar, the mean of those waves, and the result marked as a horizontal rule. For 2019, polling averaged 3.70 per cent across the 5 waves before the election and the party recorded 3.1 per cent, so polling overstated it by 0.60 points. For 2022, polling averaged 3.71 per cent across the 12 waves before the election and the party recorded 5 per cent, so polling understated it by 1.29 points. Based on 48 fortnightly waves published between 2018 and 2022. No wave carries a published margin of error, sample size or publication date, so no uncertainty interval is drawn and none is imputed. The span is not a time series: these are fortnightly snapshots and nothing is claimed about the values between them.</desc>
+<defs><pattern id="hatch-mo" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="4" stroke="currentColor" stroke-width="1" /></pattern><pattern id="hatch-mo-print" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="currentColor" stroke-width="1.6" /></pattern><marker id="result-mark" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-ink)" /></marker></defs>
+<text x="104" y="61.2" class="panel-title">Polling minus result, percentage points</text>
+<line x1="104" y1="144.3" x2="1044" y2="144.3" stroke="var(--color-rule)" stroke-width="1" />
+<text x="94" y="148.3" text-anchor="end" class="tick">-2</text>
+<line x1="104" y1="135.7" x2="1044" y2="135.7" stroke="var(--color-rule)" stroke-width="1" />
+<text x="94" y="139.7" text-anchor="end" class="tick">-1.5</text>
+<line x1="104" y1="127.0" x2="1044" y2="127.0" stroke="var(--color-rule)" stroke-width="1" />
+<text x="94" y="131.0" text-anchor="end" class="tick">-1</text>
+<line x1="104" y1="118.4" x2="1044" y2="118.4" stroke="var(--color-rule)" stroke-width="1" />
+<text x="94" y="122.4" text-anchor="end" class="tick">-0.5</text>
+<line x1="104" y1="109.8" x2="1044" y2="109.8" stroke="var(--color-rule)" stroke-width="2" />
+<text x="94" y="113.8" text-anchor="end" class="tick">0</text>
+<line x1="104" y1="101.1" x2="1044" y2="101.1" stroke="var(--color-rule)" stroke-width="1" />
+<text x="94" y="105.1" text-anchor="end" class="tick">0.5</text>
+<line x1="104" y1="92.5" x2="1044" y2="92.5" stroke="var(--color-rule)" stroke-width="1" />
+<text x="94" y="96.5" text-anchor="end" class="tick">1</text>
+<line x1="104" y1="83.8" x2="1044" y2="83.8" stroke="var(--color-rule)" stroke-width="1" />
+<text x="94" y="87.8" text-anchor="end" class="tick">1.5</text>
+<line x1="104" y1="75.2" x2="1044" y2="75.2" stroke="var(--color-rule)" stroke-width="1" />
+<text x="94" y="79.2" text-anchor="end" class="tick">2</text>
+<rect x="279.0" y="99.4" width="120.0" height="10.4" fill="var(--color-ink-muted)" />
+<text x="339.0" y="178.32" text-anchor="middle" class="tick-strong">2019</text>
+<text x="339.0" y="89.4" text-anchor="middle" class="value">+0.60</text>
+<rect x="749.0" y="109.8" width="120.0" height="22.3" fill="var(--color-ink-muted)" />
+<text x="809.0" y="178.32" text-anchor="middle" class="tick-strong">2022</text>
+<text x="809.0" y="152.1" text-anchor="middle" class="value">−1.29</text>
+<text x="104" y="157.2" class="panel-title">Where polling sat before each election, and what the ballot gave</text>
+<line x1="104" y1="236.5" x2="1044" y2="236.5" stroke="var(--color-rule)" stroke-width="2" stroke-dasharray="none" />
+<text x="94" y="240.5" text-anchor="end" class="tick">0</text>
+<line x1="104" y1="225.6" x2="1044" y2="225.6" stroke="var(--color-rule)" stroke-width="1" stroke-dasharray="2 4" />
+<text x="94" y="229.6" text-anchor="end" class="tick">1</text>
+<line x1="104" y1="214.7" x2="1044" y2="214.7" stroke="var(--color-rule)" stroke-width="1" stroke-dasharray="2 4" />
+<text x="94" y="218.7" text-anchor="end" class="tick">2</text>
+<line x1="104" y1="203.8" x2="1044" y2="203.8" stroke="var(--color-rule)" stroke-width="1" stroke-dasharray="2 4" />
+<text x="94" y="207.8" text-anchor="end" class="tick">3</text>
+<line x1="104" y1="193.0" x2="1044" y2="193.0" stroke="var(--color-rule)" stroke-width="1" stroke-dasharray="2 4" />
+<text x="94" y="197.0" text-anchor="end" class="tick">4</text>
+<line x1="104" y1="182.1" x2="1044" y2="182.1" stroke="var(--color-rule)" stroke-width="1" stroke-dasharray="2 4" />
+<text x="94" y="186.1" text-anchor="end" class="tick">5</text>
+<line x1="104" y1="171.2" x2="1044" y2="171.2" stroke="var(--color-rule)" stroke-width="1" stroke-dasharray="2 4" />
+<text x="94" y="175.2" text-anchor="end" class="tick">6</text>
+<line x1="339.0" y1="203.8" x2="339.0" y2="187.5" stroke="var(--band-edge)" stroke-width="8" stroke-linecap="butt" opacity="0.55" />
+<line x1="339.0" y1="196.2" x2="339.0" y2="196.2" stroke="var(--color-ink)" stroke-width="1" />
+<line x1="326.0" y1="202.8" x2="352.0" y2="202.8" stroke="var(--color-ink)" stroke-width="2.5" />
+<text x="339.0" y="262.48" text-anchor="middle" class="tick">3&#8211;4.5% polled</text>
+<text x="339.0" y="278.48" text-anchor="middle" class="tick">5 waves, mean 3.70%</text>
+<text x="339.0" y="294.48" text-anchor="middle" class="tick-strong">result 3.1%</text>
+<line x1="809.0" y1="203.8" x2="809.0" y2="182.1" stroke="var(--band-edge)" stroke-width="8" stroke-linecap="butt" opacity="0.55" />
+<line x1="809.0" y1="196.1" x2="809.0" y2="196.1" stroke="var(--color-ink)" stroke-width="1" />
+<line x1="796.0" y1="182.1" x2="822.0" y2="182.1" stroke="var(--color-ink)" stroke-width="2.5" />
+<text x="809.0" y="262.48" text-anchor="middle" class="tick">3&#8211;5% polled</text>
+<text x="809.0" y="278.48" text-anchor="middle" class="tick">12 waves, mean 3.71%</text>
+<text x="809.0" y="294.48" text-anchor="middle" class="tick-strong">result 5%</text>
+<text x="104" y="546" class="footnote">48 of 48 waves publish no margin of error, no sample size and no publication date. No interval is drawn or imputed.</text>
 </svg>
