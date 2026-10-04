@@ -196,18 +196,22 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   >   and x-axis thinning are implemented; a real chart with 8 election labels
   >   and an annotation will need its own collision rules. Measure on 0007.
   > - Whether an annotation's leader line still routes at narrow width.
-  > - **Print stylesheet. Written by 0006, never verified.** The `@media print`
-  >   block is in `src/margin-of-error.css:375-420` and covers every rule
-  >   `DESIGN.md:209-216` specifies: paper forced to white, 11pt body,
+  > - **Print stylesheet. Implemented by 0006, hatch closed 2026-10-04,
+  >   never physically tested.**
+  >   The `@media print` block at `src/margin-of-error.css:373-446` covers
+  >   every rule `DESIGN.md:209-216` specifies: white paper, 11pt body,
   >   `print-color-adjust: exact`, full source URLs appended to
   >   `.source-note a[href^="http"]`, `break-inside: avoid` on figures,
-  >   `break-after: avoid` on headings, and `@page size: A4 portrait` with
-  >   18mm/16mm margins. **One item is not implemented:** `DESIGN.md:212`
-  >   requires the *hatch pattern density* to be expanded for print, and the
-  >   block only sets `print-color-adjust`, which preserves the existing
-  >   density rather than expanding it. Needs an actual A4 print check to
+  >   `break-after: avoid` on headings, and `@page size: A4 portrait`.
+  >   The hatch density gap is now closed: both densities are emitted and the
+  >   print block swaps to the coarser one, because a media query cannot change
+  >   a `<pattern>`'s geometry. The build now also refuses a dangling
+  >   `url(#...)` from the stylesheet, since a typo there drops the band to no
+  >   fill on paper and no test on screen would catch it.
+  >   **Outstanding, and not testable here: a physical A4 print check** to
   >   confirm the texture survives a greyscale printer, which is the stated
-  >   reason the band is a texture at all.
+  >   reason the band is a texture at all. No automated check stands in for it,
+  >   so this stays open until someone prints the page.
   >
   > Depends on: 0002 (satisfied), 0006 (satisfied), 0007 for the remainder.
 
@@ -262,8 +266,14 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   VIC, WA.
 - **Vote efficiency calculator** — the metric that explains how a low-single-digit
   primary vote becomes seats. Needs the seat-level vote conversion data.
-- **Print hatch density** — the only unimplemented line of the `DESIGN.md` print
-  spec. Tracked under 0008; the rest of the print block shipped in 0006.
+- **Print hatch density** — **DONE 2026-10-04.** The last unimplemented line of
+  the print spec. A media query cannot change a `<pattern>`'s geometry, so the
+  generator now emits both densities and the print block swaps the fill: the
+  same two-variants-one-generator contract the charts already use for
+  wide/narrow. Screen 4px/1.0 stroke, print 6px/1.6, and the band edge goes
+  solid rather than dashed because on paper the boundary carries the meaning.
+  **Still needs a physical A4 print to confirm** the texture survives a
+  greyscale laser or inkjet; nothing here can test that.
 - **`forced-colors` mode** — specified at `DESIGN.md:202` (hatch texture and
   `--color-rule` must survive) and **implemented nowhere**: there is no
   `forced-colors` media query in any stylesheet. Distinct from reduced motion,
@@ -718,3 +728,31 @@ Append-only. Newest last.
   they do not exist to ingest. Re-verified live by string search for `sample
   size`, `margin of error`, `margin of sampling error`, `interviewed`,
   `confidence interval`, `plus or minus` and `+/-`: zero matches.
+- 2026-10-04 — **Print hatch density closed, and it exposed a class of defect
+  that no on-screen test can catch.** `DESIGN.md:212` asked for the band texture
+  to be "expanded to a visible density" for print, and the only thing the print
+  block did was set `print-color-adjust: exact`, which preserves the existing
+  density rather than expanding it. A media query cannot change a `<pattern>`'s
+  geometry — `width`, `height` and `stroke-width` are SVG attributes, not CSS
+  properties — so the generator now emits both densities and the print block
+  swaps the fill. Screen is 4px pitch at 1.0 stroke, print is 6px at 1.6, and
+  the band edge goes solid rather than dashed because on paper the boundary
+  carries the meaning, not the tint.
+  The interesting part is the consequence. Swapping a fill means the print
+  variant's pattern id is referenced **only from the stylesheet**, so it never
+  appears in the markup and no existing check could see it. A typo in that one
+  `url(#hatch-mo-print)` drops the uncertainty band to no fill on paper, which
+  is exactly the failure the texture exists to prevent: an interval the reader
+  cannot distinguish from a plain shape. Nothing on screen would show it,
+  because screen uses the other pattern.
+  So the build now resolves references from the stylesheet as well as the
+  markup, and from the HTML as well as the SVG. Getting that check to actually
+  fire took two attempts: a `starts with` allowance for the narrow variant's
+  suffixed ids was too permissive and let a **broken wide-chart id pass**, since
+  the narrow copy's `-narrow` id still satisfied the prefix test. Exact match
+  only, every variant resolved independently. Both are now verified to fail, in
+  wide and narrow.
+  Five tests added. Suite is 42.
+  **Still open and not testable here: a physical A4 print.** No automated check
+  can confirm the texture survives a greyscale laser or inkjet, so the item stays
+  open until someone prints the page.

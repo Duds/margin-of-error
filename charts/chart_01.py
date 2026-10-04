@@ -74,7 +74,8 @@ def band_polygon(run: list[dict], x_of: Scale, y_of: Scale) -> str:
     )
     return (
         f'<polygon points="{top} {bottom}" fill="url(#hatch-mo)" '
-        f'color="var(--color-ink-muted)" stroke="var(--band-edge)" '
+        f'class="band" color="var(--color-ink-muted)" '
+        f'stroke="var(--band-edge)" '
         f'stroke-width="1" stroke-dasharray="4 3" />'
     )
 
@@ -146,11 +147,32 @@ def render(viewport: str) -> str:
         "published.</title>"
     )
     out.append(f'<desc id="chart-01-desc">{desc_text(n_banded, n_null, narrow)}</desc>')
+    # Two hatch densities, both emitted, switched by CSS on @media print.
+    #
+    # DESIGN.md:212 requires the pattern be "expanded to a visible density" for
+    # print, and the reason the band is a texture at all is that it must survive
+    # a greyscale printer with no colour. At 4px on screen the texture is a
+    # hint; at print resolution the same 4px pitch falls below what a laser or
+    # inkjet can resolve, so the band prints as flat grey and the reader cannot
+    # tell a margin from a plain fill.
+    #
+    # The print variant is a coarser pitch (6px) with a heavier stroke (1.6),
+    # which survives downsampling to paper. Both patterns are emitted because a
+    # CSS media query cannot change a <pattern>'s geometry: width, height and
+    # stroke-width are SVG attributes, not properties. The polygons are filled
+    # with the screen pattern and the print block swaps the fill, the same
+    # two-variants-one-generator contract task 0008 established for charts.
     out.append(
-        '<defs><pattern id="hatch-mo" width="4" height="4" '
+        '<defs>'
+        '<pattern id="hatch-mo" width="4" height="4" '
         'patternUnits="userSpaceOnUse" patternTransform="rotate(45)">'
         '<line x1="0" y1="0" x2="0" y2="4" stroke="currentColor" '
-        'stroke-width="1" /></pattern></defs>'
+        'stroke-width="1" /></pattern>'
+        '<pattern id="hatch-mo-print" width="6" height="6" '
+        'patternUnits="userSpaceOnUse" patternTransform="rotate(45)">'
+        '<line x1="0" y1="0" x2="0" y2="6" stroke="currentColor" '
+        'stroke-width="1.6" /></pattern>'
+        '</defs>'
     )
 
     # Zero rule only. No other gridlines (DESIGN.md).

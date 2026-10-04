@@ -382,10 +382,40 @@ figure .chart-narrow {
     font-size: 11pt;
   }
 
-  /* Expand the hatch so a greyscale printer keeps the texture. */
+  /* Expand the hatch so a greyscale printer keeps the texture.
+
+     DESIGN.md:212. The reason the band is a texture rather than a colour is
+     that it must survive a printer with no colour, so the texture has to
+     survive it too. At the 4px screen pitch the band reads as a hint; the same
+     pitch falls below what paper resolves, and the band prints as flat grey,
+     indistinguishable from a plain fill.
+
+     A media query cannot change a <pattern>'s geometry: width, height and
+     stroke-width are SVG attributes, not CSS properties. So the generator
+     emits both densities and this block swaps the fill, the same
+     two-variants-one-generator contract the charts already use for
+     wide/narrow. Verified in both variants via the --narrow suffix rewrite.
+  */
   svg {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+
+  .band {
+    fill: url(#hatch-mo-print);
+  }
+
+  /* The narrow chart's ids are suffixed at build time, so the print pattern
+     needs the matching reference or the band falls back to no fill at all. */
+  .chart-narrow .band {
+    fill: url(#hatch-mo-print-narrow);
+  }
+
+  /* On paper the interval boundary carries the meaning, not the tint, so the
+     dashed edge goes solid and heavier. */
+  .band {
+    stroke-dasharray: none;
+    stroke-width: 1.5;
   }
 
   /* Print the full URL, not just the source name. */

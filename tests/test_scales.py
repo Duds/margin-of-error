@@ -350,5 +350,72 @@ class TestRoyMorganColumnMapping(unittest.TestCase):
 
 
 
+class TestSvgReferences(unittest.TestCase):
+    """Internal references must resolve, in the markup AND in the stylesheet.
+
+    The print band is the reason this exists. A band that renders with no fill
+    on paper is an uncertainty interval the reader cannot distinguish from a
+    plain shape, which is the failure DESIGN.md:212 exists to prevent.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "build", Path(__file__).resolve().parent.parent / "tools" / "build.py"
+        )
+        cls.build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.build)
+
+    def test_committed_charts_resolve_every_reference(self):
+        html = (Path(__file__).resolve().parent.parent / "index.html").read_text()
+        ids = set(__import__("re").findall(r'id="([^"]+)"', html))
+        refs = set(__import__("re").findall(r"url\(#([^)]+)\)", html))
+        self.assertTrue(refs, "no url(#...) references found; the test is vacuous")
+        self.assertEqual(refs - ids, set(), "dangling fill references in index.html")
+
+    def test_both_hatch_densities_are_emitted(self):
+        """Screen and print patterns, plus the narrow variant's suffixed ids."""
+        html = (Path(__file__).resolve().parent.parent / "index.html").read_text()
+        for required in ("hatch-mo", "hatch-mo-narrow",
+                         "hatch-mo-print", "hatch-mo-print-narrow"):
+            self.assertIn(f'id="{required}"', html,
+                          f"missing {required}; print band would render unfilled")
+
+    def test_print_pattern_is_coarser_than_screen(self):
+        """Expanded density means a wider pitch and a heavier stroke."""
+        for name in ("chart-01.svg", "chart-01-narrow.svg"):
+            svg = (Path(__file__).resolve().parent.parent / "charts" / name).read_text()
+            screen = svg[svg.index('id="hatch-mo"'):]
+            screen = screen[:screen.index("</pattern>")]
+            print_ = svg[svg.index('id="hatch-mo-print"'):]
+            print_ = print_[:print_.index("</pattern>")]
+            sw = float(__import__("re").search(r'stroke-width="([\d.]+)"', screen).group(1))
+            pw = float(__import__("re").search(r'stroke-width="([\d.]+)"', print_).group(1))
+            self.assertGreater(pw, sw, f"{name}: print hatch is not heavier")
+            s_w = int(__import__("re").search(r'width="(\d+)"', screen).group(1))
+            p_w = int(__import__("re").search(r'width="(\d+)"', print_).group(1))
+            self.assertGreater(p_w, s_w, f"{name}: print hatch pitch not expanded")
+
+    def test_print_block_swaps_the_band_fill(self):
+        css = (Path(__file__).resolve().parent.parent
+               / "src" / "margin-of-error.css").read_text()
+        block = css[css.index("@media print"):]
+        self.assertIn("url(#hatch-mo-print)", block,
+                      "print block does not swap to the coarse pattern")
+        self.assertIn("url(#hatch-mo-print-narrow)", block,
+                      "print block does not cover the narrow variant")
+        self.assertIn("print-color-adjust: exact", block)
+
+    def test_band_elements_carry_the_class_the_print_rule_targets(self):
+        for name in ("chart-01.svg", "chart-01-narrow.svg"):
+            svg = (Path(__file__).resolve().parent.parent / "charts" / name).read_text()
+            for poly in __import__("re").findall(r"<polygon[^>]*>", svg):
+                if "url(#hatch-mo" in poly:
+                    self.assertIn('class="band"', poly,
+                                  f"{name}: band polygon cannot be targeted on print")
+
+
 if __name__ == "__main__":
     unittest.main()

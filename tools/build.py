@@ -20,6 +20,7 @@ TEMPLATE = ROOT / "src" / "index.template.html"
 OUTPUT = ROOT / "index.html"
 CHART_DIR = ROOT / "charts"
 DATA_SOURCES = ROOT / "docs" / "data-sources.md"
+CSS = ROOT / "src" / "margin-of-error.css"
 
 PLACEHOLDER = re.compile(
     r"^\s*(?P<indent>[ \t]*)<!--\s*chart:(?P<id>\d+)\s*-->\s*$", re.MULTILINE
@@ -262,6 +263,44 @@ def validate(html: str, template: str) -> list[str]:
             if "<desc" not in svg:
                 problems.append(f"{name}: missing <desc>")
             problems.extend(unsourced_figure_problems(name, svg, data_sources()))
+
+    # Every internal reference must resolve, including the ones only the print
+    # stylesheet reaches. A dangling url(#hatch-mo-print) drops the uncertainty
+    # band to no fill, which on paper is precisely what DESIGN.md:212 exists to
+    # prevent: an interval that reads as a plain shape, indistinguishable from
+    # a series line.
+    ids = set(re.findall(r'id="([^"]+)"', html))
+
+    # References the stylesheet makes into the SVG, which never appear in the
+    # markup at all. The print block swaps the band fill to a coarser pattern,
+    # so a typo there is invisible in the HTML and silently drops the hatch on
+    # paper. Check the stylesheet's url(#...) targets too.
+    css = CSS.read_text(encoding="utf-8") if CSS.exists() else ""
+    # Exact match only, plus the one suffix the build itself appends to the
+    # narrow variant's ids. A looser "starts with" test was tried and masks the
+    # wide chart: a broken wide id still matched the narrow "-narrow" copy, so
+    # the defect passed. Every reference must resolve for the variant that
+    # actually uses it.
+    for ref in sorted(set(re.findall(r"url\(#([^)]+)\)", css))):
+        if ref not in ids:
+            problems.append(
+                f"stylesheet references url(#{ref}) but no element carries that "
+                f"id; the print band will render with no fill"
+            )
+
+    for ref in sorted(set(re.findall(r"url\(#([^)]+)\)", html))):
+        if ref not in ids:
+            problems.append(
+                f"fill references url(#{ref}) but no element carries that id; "
+                f"the band will render with no fill"
+            )
+    for labelledby in re.findall(r'aria-labelledby="([^"]+)"', html):
+        for token in labelledby.split():
+            if token not in ids:
+                problems.append(
+                    f'aria-labelledby="{labelledby}" points at missing id '
+                    f'"{token}"; the chart has no accessible name'
+                )
 
     # Raw hex is banned outside :root by the generative UI rules. The template
     # and stylesheet carry no hex at all, so any here came from a chart.

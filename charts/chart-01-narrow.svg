@@ -1,13 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 460" class="chart" role="img" aria-labelledby="chart-01-title chart-01-desc" data-unsourced="true" font-family="IBM Plex Mono, ui-monospace, monospace" style="aspect-ratio: 420 / 460; font-variant-numeric: tabular-nums">
 <title id="chart-01-title">One Nation primary vote intention, polls by year, with published margins of error. Placeholder figures, not published.</title>
 <desc id="chart-01-desc">A time series of poll estimates from 1996 to 2004 plotted against election year. 3 of 4 polls carry a published margin of error, drawn as a capped vertical whisker where a single bounded poll stands alone. 1 poll published no margin of error and is drawn as an open circle, with no interval imputed. The y axis runs from 0 to 10 per cent and is not truncated. Fills use the page semantic tokens. These are placeholder figures and are not published.</desc>
-<defs><pattern id="hatch-mo" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="4" stroke="currentColor" stroke-width="1" /></pattern></defs>
+<defs><pattern id="hatch-mo" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="4" stroke="currentColor" stroke-width="1" /></pattern><pattern id="hatch-mo-print" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="currentColor" stroke-width="1.6" /></pattern></defs>
 <line x1="52" y1="392.0" x2="404" y2="392.0" stroke="var(--color-rule)" stroke-width="1" />
 <text x="42" y="396.0" text-anchor="end" font-size="16" fill="var(--color-ink-muted)">0%</text>
 <text x="42" y="250.4" text-anchor="end" font-size="16" fill="var(--color-ink-muted)">4%</text>
 <text x="42" y="104.8" text-anchor="end" font-size="16" fill="var(--color-ink-muted)">8%</text>
 <line x1="52.0" y1="228.2" x2="52.0" y2="119.0" stroke="var(--band-edge)" stroke-width="1" /><line x1="46.0" y1="228.2" x2="58.0" y2="228.2" stroke="var(--band-edge)" stroke-width="1" /><line x1="46.0" y1="119.0" x2="58.0" y2="119.0" stroke="var(--band-edge)" stroke-width="1" />
-<polygon points="272.0,173.6 404.0,100.8 404.0,210.0 272.0,282.8" fill="url(#hatch-mo)" color="var(--color-ink-muted)" stroke="var(--band-edge)" stroke-width="1" stroke-dasharray="4 3" />
+<polygon points="272.0,173.6 404.0,100.8 404.0,210.0 272.0,282.8" fill="url(#hatch-mo)" class="band" color="var(--color-ink-muted)" stroke="var(--band-edge)" stroke-width="1" stroke-dasharray="4 3" />
 <polyline points="52.0,173.6 140.0,64.4 272.0,228.2 404.0,155.4" fill="none" stroke="var(--color-ink)" stroke-width="2" data-draw-path />
 <circle cx="52.0" cy="173.6" r="4" fill="var(--color-ink)" />
 <circle cx="140.0" cy="64.4" r="5" fill="none" stroke="var(--color-ink-muted)" stroke-width="1.5" />
