@@ -126,23 +126,34 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   > series across cycles is the remaining work.
   > Next: register every intended source in `docs/data-sources.md` before use.
 - **0004 — Establish the polling dataset** — fieldwork dates, house, n, margin.
-  > **UNBLOCKED 2026-10-03 by editorial decision.** Roy Morgan publishes the
-  > fieldwork window and the party share but **not** `n`, **not**
-  > `margin_of_error`, and **not** `pub_date`. No methodology page, no data
-  > download.
-  > **Decision, revised 2026-10-04:** build the series recording these fields as
-  > *null where not published*, and handle the absence as a stated limit on the
-  > evidence, in the page's own voice. It is **not** a finding about pollsters,
-  > which is why framing was reversed on 2026-10-04 (see Events). The thesis is
-  > "how much weight can that comparison carry?", non-negotiable 5 is amended
-  > to require a visible "no published margin" marker, and imputing a margin
-  > from an assumed n is prohibited outright regardless of framing.
-  > **Hard requirement for the ingest:** select columns by header name, never
-  > by offset. Roy Morgan's monthly table has no discrete One Nation column;
-  > the party is folded into "Other Parties (ALL)" at 18.5% against 7.5% for
-  > the April 2025 wave. Fail loudly on an unmapped column.
-  > Full assessment in `docs/data-sources.md` under "Task 0004 — polling
-  > source assessment".
+  > **INGEST BUILT 2026-10-04. The structural blocker stands.**
+  > `tools/ingest_roymorgan.py` reads the Roy Morgan PVI page and writes
+  > `data/polls_roymorgan.csv` (138 waves) and
+  > `data/roymorgan_election_results.csv` (10 elections). Both are reproducible
+  > from a saved page. **No sample size, no margin of error and no publication
+  > date exist to ingest** — re-verified on the live page by string search for
+  > `sample size`, `margin of error`, `margin of sampling error`, `interviewed`,
+  > `confidence interval`, `plus or minus` and `+/-`: zero matches. Those fields
+  > are written null and stay null.
+  > **The trap is now enforced in code, not prose.** The monthly table has no
+  > discrete One Nation column. The nearest cell, "Other Parties (ALL)", reads
+  > 18.5 for the April 2025 wave against One Nation at 7.5, and the
+  > publisher's own footnote says the combined figure "includes support for One
+  > Nation (highlighted in the release) of 7.5%" — so the party is a subset of
+  > that cell, not the cell. `select_column()` selects by header text, raises
+  > `UnmappedColumn` on anything absent, and refuses a **discrete** party
+  > request that resolves to an **aggregate** column. `validate()` additionally
+  > fails if `pvi_oned` is ever populated on the monthly table.
+  > **What this means for the thesis.** Roy Morgan can supply a field window
+  > per wave and a discrete party primary vote per election, but not a
+  > poll-by-poll party share. So chart 01 cannot plot the party's polling
+  > trajectory from this house. Either a Tier B source with a discrete party
+  > column and a published margin is found, or the chart's form changes to
+  > aggregate-versus-result with the party's share only at election points.
+  > **This is the open decision on task 0007**, and it is editorial, not
+  > technical. It needs Dale.
+  > Next: register the dataset in `docs/data-sources.md` and decide the chart
+  > form before building anything on top of it.
 - **0005 — Right of reply** — send the draft thesis and named claims.
   > Blocking publication, not blocking development. Send before the copy is
   > final, so a substantive response can shape the framing.
@@ -673,3 +684,37 @@ Append-only. Newest last.
   was pointed after the overwrite, so drift looked clean. In both cases the
   assertion existed and had never been seen to fail. Testing that a guard fails
   is now part of adding one.
+- 2026-10-04 — **Task 0004 ingest written, and it confirms the blocker rather
+  than clearing it.** `tools/ingest_roymorgan.py` produces 138 monthly waves and
+  10 election results from the Roy Morgan PVI page, reproducibly from a saved
+  copy. The trap AGENTS.md warns about is now enforced in code: `select_column`
+  selects by header text, raises `UnmappedColumn` on anything absent, and
+  refuses a **discrete** party request that resolves to an **aggregate** column
+  while still allowing a deliberate aggregate request by name. `validate()` fails
+  outright if `pvi_oned` is ever written on the monthly table. 7 tests, suite is
+  37.
+  The publisher's own footnote is the decisive evidence and is worth quoting in
+  full, because it settles the arithmetic rather than leaving it to inference:
+  the April 27 2025 combined cell reads 18.5 and "includes support for One
+  Nation (highlighted in the release) of 7.5%". The party is a **subset** of
+  that cell. So the monthly table cannot supply a discrete party share at all,
+  and chart 01 cannot plot the party's polling trajectory from this house.
+  That is now the **open editorial decision on 0007**: find a Tier B source with
+  a discrete party column and a published margin, or change the chart's form to
+  aggregate-versus-result with the party appearing only at election points.
+  Neither is a technical choice and both change what the page claims.
+  Four bugs found by running the script rather than reading it, all of the
+  silent kind this project keeps hitting:
+  1. The aggregate guard fired on a **legitimate** aggregate request on its
+     first run, which is a guard that would have been deleted as broken rather
+     than fixed. The guard belongs on the mismatch, not on aggregates.
+  2. `election_date` collapsed to a bare year: a nested regex group read as the
+     date. Output looked plausible and was wrong in every row.
+  3. The quota warning tested "below 12.3%", which is true of **all ten**
+     elections, so it warned on everything and therefore said nothing. Now
+     flags the 2004-2016 block under 2.5%, which is the actual discontinuity.
+  4. A local named `start` shadowed a year integer and crashed the run.
+  Also: `n`, `margin_of_error` and `pub_date` are null on every row, because
+  they do not exist to ingest. Re-verified live by string search for `sample
+  size`, `margin of error`, `margin of sampling error`, `interviewed`,
+  `confidence interval`, `plus or minus` and `+/-`: zero matches.

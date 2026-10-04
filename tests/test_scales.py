@@ -258,5 +258,97 @@ class TestBuildAssertions(unittest.TestCase):
             )
 
 
+class TestRoyMorganColumnMapping(unittest.TestCase):
+    """The trap AGENTS.md gotchas call out by name.
+
+    Roy Morgan's monthly table has no discrete One Nation column. The party is
+    folded into a combined "Other Parties (ALL)" cell that reads 18.5 for the
+    April 2025 wave against One Nation at 7.5. A positional read overstates the
+    party by more than double, and fails silently.
+
+    These tests exist so the mapping cannot be "simplified" back to an offset.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "ingest",
+            Path(__file__).resolve().parent.parent / "tools" / "ingest_roymorgan.py",
+        )
+        cls.ingest = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.ingest)
+
+    MONTHLY = ["", "ALP", "Liberal Party", "National Party", "Total L-NP",
+               "Total Others", "Greens", "Indepen-dents (ALL)",
+               "Other Parties (ALL)", "Can't say/ Refused"]
+
+    def test_monthly_table_has_no_one_nation_column(self):
+        """States the fact the whole script is built around."""
+        with self.assertRaises(self.ingest.UnmappedColumn):
+            self.ingest.select_column(self.MONTHLY, "One Nation", "monthly")
+
+    def test_discrete_request_refuses_an_aggregate_column(self):
+        header = ["", "ALP", "Greens", "Other Parties (ALL)"]
+        with self.assertRaises(self.ingest.UnmappedColumn):
+            self.ingest.select_column(header, "One Nation", "monthly")
+
+    def test_aggregate_may_be_requested_by_name(self):
+        """Reading the combined cell on purpose is legitimate and allowed.
+
+        The guard is on the mismatch, not on aggregates. Asking for the
+        combined column and getting it is the correct behaviour; asking for a
+        discrete party and getting it is the bug.
+        """
+        idx = self.ingest.select_column(
+            self.MONTHLY, "Other Parties (ALL)", "monthly"
+        )
+        self.assertEqual(self.MONTHLY[idx], "Other Parties (ALL)")
+
+    def test_election_table_does_carry_one_nation(self):
+        header = ["", "ALP", "L-NP", "The Greens", "One Nation", "Ind./Others"]
+        self.assertEqual(
+            self.ingest.select_column(header, "One Nation", "results"),
+            header.index("One Nation"),
+        )
+
+    def test_unknown_column_raises_rather_than_defaulting(self):
+        with self.assertRaises(self.ingest.UnmappedColumn):
+            self.ingest.select_column(self.MONTHLY, "Some Future Column", "monthly")
+
+    def test_published_absences_stay_null(self):
+        """Non-negotiable 5: never impute a margin from an assumed n."""
+        rows = list(self.ingest.ingest_monthly(
+            [[["", "ALP", "Liberal Party", "National Party", "Total L-NP",
+              "Total Others", "Greens", "Indepen-dents (ALL)",
+              "Other Parties (ALL)", "Can't say/ Refused"],
+             ["2025"],
+             ["May 5-31", "37.0", "26.5", "4.5", "31.0", "32.0", "11.5",
+              "8.5", "14.5", "6.0"]]],
+            [],
+        ))
+        self.assertEqual(len(rows), 1)
+        r = rows[0]
+        self.assertEqual(r["n"], "")
+        self.assertEqual(r["margin_of_error"], "")
+        self.assertEqual(r["pub_date"], "")
+        self.assertEqual(r["publishes_n"], "no")
+
+    def test_monthly_ingest_never_writes_a_party_figure(self):
+        """The assertion that makes the trap unrepeatable."""
+        tables = [[["", "ALP", "Liberal Party", "National Party", "Total L-NP",
+                    "Total Others", "Greens", "Indepen-dents (ALL)",
+                    "Other Parties (ALL)", "Can't say/ Refused"],
+                   ["2025"],
+                   ["May 5-31", "37.0", "26.5", "4.5", "31.0", "32.0", "11.5",
+                    "8.5", "14.5", "6.0"]]]
+        rows = self.ingest.ingest_monthly(tables, [])
+        for r in rows:
+            self.assertEqual(r["pvi_oned"], "", "monthly table must not carry a party figure")
+        self.assertEqual(self.ingest.validate(rows, []), [])
+
+
+
 if __name__ == "__main__":
     unittest.main()

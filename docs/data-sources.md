@@ -222,6 +222,72 @@ row is verified against AEC with its registered name and fielded candidate
 count recorded.
 ---
 
+## Ingested datasets
+
+Produced by `tools/ingest_roymorgan.py` from `roymorgan-pvi`. Reproducible: run
+against a saved copy of the page and the output is identical.
+
+| File | Rows | What it is |
+|---|---|---|
+| `data/polls_roymorgan.csv` | 138 | Monthly PVI waves: field window, ALP, and the combined "Other Parties (ALL)" / "Indepen-dents (ALL)" cells. **`pvi_oned` is empty on every row by construction.** |
+| `data/roymorgan_election_results.csv` | 10 | Discrete One Nation primary vote by federal election, 1996 to 2025. **Cross-check only; every row requires AEC confirmation.** |
+
+Three fields are null on every poll row and must stay that way:
+
+| Field | Status | Why |
+|---|---|---|
+| `n` | not published | absent from the entire page |
+| `margin_of_error` | not published | absent; no methodology page linked |
+| `pub_date` | not published | no publication date on any wave |
+
+`AGENTS.md` non-negotiable 5 prohibits imputing a margin from an assumed sample
+size. A band derived from a guessed `n` is fabricated precision in the visual
+language of honesty, which is the specific failure this project exists to
+expose.
+
+### The denominator trap, enforced in code
+
+The monthly table has **no discrete One Nation column**. The party is folded
+into "Other Parties (ALL)", which reads **18.5** for the April 27 2025 wave.
+One Nation's own figure for that wave is **7.5**, and the publisher's footnote
+says the combined cell "includes support for One Nation (highlighted in the
+release) of 7.5%". The party is therefore a **subset** of that cell, not the
+cell. Reading it as the party would overstate One Nation by more than double,
+and would fail silently.
+
+`select_column()` in `tools/ingest_roymorgan.py` selects by header text and
+raises `UnmappedColumn` rather than defaulting. It refuses a **discrete** party
+request that resolves to an **aggregate** column, while still permitting a
+deliberate request for the aggregate by name — the guard is on the mismatch,
+not on aggregates. `validate()` fails outright if `pvi_oned` is ever populated
+on the monthly table. 7 regression tests cover this.
+
+### A discontinuity in the election series
+
+| Election | Year | ON primary % |
+|---|---|---|
+| 2025 | May 3 | 6.4 |
+| 2022 | May 21 | 5.0 |
+| 2019 | May 18 | 3.1 |
+| 2016 | July 2 | 1.3 |
+| 2013 | September 7 | 0.2 |
+| 2010 | August 21 | 0.2 |
+| 2007 | November 24 | 0.3 |
+| 2004 | October 9 | 1.2 |
+| 2001 | November 10 | 4.3 |
+| 1996 | March 2 | 0.3 |
+
+The 2004-2016 block sits at 0.2-1.3 while 2001 and 2019-2025 sit at 3.1-6.4.
+That is not a smooth trend; it is a different measure of the same name. Below
+the 12.3% Senate-registration quota a party can still contest, but slate
+coverage and registered name differ across those cycles. Per `AGENTS.md`
+gotchas, series construction must match on the **AEC party abbreviation for
+each election** and record the fielded candidate count, not on the modern name.
+Do not present 1996 to 2025 as one continuous series until each row is verified
+against AEC.
+
+---
+
 ## Vendored dependencies (fonts)
 
 Every third-party asset served by the page, per `AGENTS.md`. All are SIL Open

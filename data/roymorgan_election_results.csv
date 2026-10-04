@@ -1,0 +1,11 @@
+election_date,election_year,house,primary_vote_oned_pct,primary_vote_alp_pct,cross_check_only,requires_aec_confirmation,source_id,retrieved
+"May 3, 2025",2025,Roy Morgan,6.4,34.6,yes,yes,roymorgan-pvi,2026-10-04
+"May 21, 2022",2022,Roy Morgan,5.0,32.6,yes,yes,roymorgan-pvi,2026-10-04
+"May 18, 2019",2019,Roy Morgan,3.1,33.3,yes,yes,roymorgan-pvi,2026-10-04
+"July 2, 2016",2016,Roy Morgan,1.3,34.7,yes,yes,roymorgan-pvi,2026-10-04
+"September 7, 2013",2013,Roy Morgan,0.2,33.4,yes,yes,roymorgan-pvi,2026-10-04
+"August 21, 2010",2010,Roy Morgan,0.2,38.0,yes,yes,roymorgan-pvi,2026-10-04
+"November 24, 2007",2007,Roy Morgan,0.3,43.4,yes,yes,roymorgan-pvi,2026-10-04
+"October 9, 2004",2004,Roy Morgan,1.2,37.6,yes,yes,roymorgan-pvi,2026-10-04
+"November 10, 2001",2001,Roy Morgan,4.3,37.8,yes,yes,roymorgan-pvi,2026-10-04
+"March 2, 1996",1996,Roy Morgan,0.3,38.8,yes,yes,roymorgan-pvi,2026-10-04
