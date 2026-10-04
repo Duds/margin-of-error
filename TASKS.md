@@ -182,7 +182,32 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   > Blocking publication, not blocking development. Send before the copy is
   > final, so a substantive response can shape the framing.
   > Depends on: 0001.
-- **0007 — Chart one: the band** — whatever the thesis calls for first.
+- **0007 — Chart one: polling against result** — **DESIGN APPROVED 2026-10-04,
+  SPEC WRITTEN, awaiting Dale's review.**
+  > Spec: `docs/superpowers/specs/2026-10-04-chart-01-polling-vs-result-design.md`
+  > **The spine is polling-against-result, 2018 to 2022.** 48 fortnightly waves
+  > with a discrete One Nation figure against two election results. Mean of the
+  > preceding waves: 3.70% for 2019 (result 3.1, gap **+0.60pp**), 3.71% for 2022
+  > (result 5.0, gap **−1.29pp**). **Polling was wrong in both directions**, which
+  > is the "open test, not verdict" thesis actually working — a chart drawn
+  > before looking at the data would likely have implied consistent overshoot.
+  > Form: spine chart of poll-minus-result from a zero rule, with the evidence
+  > beneath it as a per-election vertical span of the preceding range, not a line
+  > across 48 waves (a line would assert values between fortnightly snapshots
+  > that nobody measured).
+  > **Two corrections found by recomputing from source during spec review.**
+  > The wave count is **48, not 49** — the table yields 49 rows with a discrete
+  > figure but one is the 2019 election *result*, not a poll. And the 2019 window
+  > is **5 waves, not 12**, because only five polls precede that election. Both
+  > were wrong in the first draft and caught by recomputing rather than trusting
+  > the earlier figure. Neither is smoothed over: each mean is labelled with the
+  > wave count it actually used.
+  > **The gate:** nothing ships until task 0003 confirms the 2019 and 2022
+  > results against AEC. Dale, 2026-10-04: "Nothing is shipping to prod yet...
+  > but we need to build the chart with what we have now, and we will update it
+  > when we get the better information." So the chart is built now behind a
+  > machine-checked gate that fails the build rather than being bypassed, and
+  > AEC figures drop in with no chart code change.
   > Depends on: 0001, 0003, 0004.
   > **The build blocker is cleared.** It was previously "blocked on a build
   > assertion, not on data": `charts/chart_01.py` held unsourced placeholder
@@ -889,3 +914,25 @@ Append-only. Newest last.
   mean-of-12-waves figure can drift from the waves it was computed from, and
   the only defence is computing it in code from the ingested file at build time
   rather than transcribing it. The spec requires exactly that.
+- 2026-10-04 — **Chart 01 design approved and spec written.** The spine is
+  polling-against-result for 2018 to 2022. The finding goes both ways: polling
+  0.60 points high in 2019 and 1.29 points low in 2022. Recorded as a finding in
+  the `## Events` log because it is the first time the dataset has produced an
+  answer, and the answer is not the one the page's original framing implied.
+  Two errors were caught in the spec's own first draft, both by recomputing from
+  the source instead of trusting the number already in my notes:
+  1. **The wave count is 48, not 49.** The table yields 49 rows carrying a
+     discrete One Nation figure for 2018-2022, but one of them is the row
+     labelled `2019 Federal Election - May 18, 2019`, which is a result rather
+     than a poll. Counting a result among the polls is the same class of slip as
+     a mean that drifts from its inputs, and it is exactly what the tenfold
+     booth-coverage overstatement in the archived model looked like: a figure
+     that survives because nothing recomputes it.
+  2. **The 2019 window is 5 waves, not 12.** Only five polls precede that
+     election; twelve precede 2022. The trailing-twelve rule is therefore "up to
+     twelve", and a 5-wave mean is a different quantity from a 12-wave mean. Not
+     padded, not presented as twelve: each mean is labelled with the wave count it
+     used, and build assertion 2 binds that label to the arithmetic.
+  Neither error would have been caught by reading the spec. Both were caught by
+  running the computation again against the source, which is the habit the spec
+  itself mandates for every number on the page.
