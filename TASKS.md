@@ -144,14 +144,38 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   > `UnmappedColumn` on anything absent, and refuses a **discrete** party
   > request that resolves to an **aggregate** column. `validate()` additionally
   > fails if `pvi_oned` is ever populated on the monthly table.
-  > **What this means for the thesis.** Roy Morgan can supply a field window
-  > per wave and a discrete party primary vote per election, but not a
-  > poll-by-poll party share. So chart 01 cannot plot the party's polling
-  > trajectory from this house. Either a Tier B source with a discrete party
-  > column and a published margin is found, or the chart's form changes to
-  > aggregate-versus-result with the party's share only at election points.
-  > **This is the open decision on task 0007**, and it is editorial, not
-  > technical. It needs Dale.
+  > **CORRECTION, 2026-10-04, after Dale asked about the prototype: the
+  > monthly claim above is too strong and partly wrong.** Roy Morgan's page
+  > carries a **second, separate** table with a discrete One Nation column —
+  > 132 rows spanning 2013 to 2022. The ingest did not read it, because it keys
+  > off the election-results table. Per-year count of waves carrying a discrete
+  > figure:
+  >
+  > | Year | Waves with a discrete One Nation figure |
+  > |---|---|
+  > | 2013 | 0 of 7 |
+  > | 2014 | 0 of 26 |
+  > | 2015 | 0 of 26 |
+  > | 2016 | 1 of 12 |
+  > | 2018 | 4 of 4 |
+  > | 2019 | 6 of 6 |
+  > | 2020 | 8 of 8 |
+  > | 2021 | 16 of 16 |
+  > | 2022 | 15 of 15 |
+  >
+  > **2017 is absent entirely**, and 2013 to 2016 are almost entirely blank.
+  > So the true position is: **a discrete party polling series for 2018 to 2022,
+  > monthly, plus nothing useful before 2018 and nothing after 2022** (the
+  > 2022-2025 monthly table is the combined-column one). That is five years of
+  > real discrete polling, not zero, and it is the axis the original thesis
+  > actually needs.
+  > Still unknown and still disqualifying: **no margin of error, no sample
+  > size, no publication date.** So the series cannot carry a band. It CAN carry
+  > polling-against-result over 2018-2022 with an honest "no published margin"
+  > marker, which is what non-negotiable 5 as amended now requires.
+  > **Next: extend the ingest to read that table, verify the 2017 gap is real
+  > and not a parsing artefact, and confirm the 2018-2022 figures against the
+  > release text for a sample of waves before any of it is plotted.**
   > Next: register the dataset in `docs/data-sources.md` and decide the chart
   > form before building anything on top of it.
 - **0005 — Right of reply** — send the draft thesis and named claims.
@@ -813,3 +837,33 @@ Append-only. Newest last.
   deliberately not scheduled. Recorded as code-complete and untested rather than
   done, because the difference between those two words is the whole point of
   this project's corrections policy. Deferred is not the same as verified.
+- 2026-10-04 — **Correction: task 0004's blocker is smaller than recorded.** Dale
+  asked what the discarded prototype assumed, which prompted a second look at
+  the Roy Morgan page. It carries a **second table with a discrete One Nation
+  column**, 132 rows spanning 2013 to 2022, which the ingest never read because
+  it keys off the election-results table. Measured, per year: 2013 0 of 7 waves,
+  2014 0 of 26, 2015 0 of 26, 2016 1 of 12, **2017 absent entirely**, then 2018
+  4 of 4, 2019 6 of 6, 2020 8 of 8, 2021 16 of 16, 2022 15 of 15.
+  So the true position is **a discrete monthly party series for 2018 to 2022**
+  — five years — with nothing usable before 2018 and nothing after 2022, because
+  the 2022-2025 monthly table is the combined-column one. The earlier note in
+  this entry said the monthly table "cannot supply a discrete party share at
+  all", which is true of the table it was looking at and false of the page.
+  The distinction matters because it decides what the page can be: five years of
+  monthly party polling against two election results is the axis the original
+  thesis wanted.
+  What is unchanged and still disqualifying: **no margin of error, no sample
+  size, no publication date.** The series can carry polling-against-result with
+  an honest "no published margin" marker, which is what non-negotiable 5 as
+  amended requires, and it cannot carry a band.
+  Also recorded from Dale's summary of the prototype: its realistic-ceiling claim
+  put the ceiling at "1 to 4 regional **Queensland** lower house seats". The one
+  verified win is **Farrer, NSW**, 25 May 2026. Small sample, but it is a
+  regional stereotype standing where a verified result belongs, which is exactly
+  what the archive convention now exists to catch. Items 2 and 3 of that summary
+  (a +4.5%-per-cycle swing assumption, and volunteer numbers under 3,000 with
+  sub-15% booth coverage) are **forecasts and unsourced estimates** respectively,
+  and neither is publishable under non-negotiables 1 and 2. Items 1 and 4 are
+  arithmetic about the electoral system and are a different matter: both are
+  measurable from AEC data, and item 1 corresponds to the existing Chart 04
+  spec.
