@@ -867,3 +867,19 @@ Append-only. Newest last.
   arithmetic about the electoral system and are a different matter: both are
   measurable from AEC data, and item 1 corresponds to the existing Chart 04
   spec.
+- 2026-10-04 — **Prototype feasibility model received, archived, and read for
+  what it assumed.** Filed at
+  `docs/archive/2026-10-04-phon-feasibility-model.py`, body verbatim, banner
+  recording four defects. Three are arithmetic: `TOTAL_HOR_SEATS = 150` against
+  a 151-seat House, which contradicts the script's own printed string inside one
+  run; `CURRENT_PHON_SEATS = 2` against a verified 1; and a seat-conversion model
+  that is a linear ramp on coefficients appearing in no cited source.
+  The fourth matters beyond this file. **The summary said booth coverage was
+  "below 15%"; the script's own output is 1.33%.** A tenfold overstatement
+  introduced between running a model and describing it, with no error raised.
+  That is the same class as the 0002 zero-width band and the placeholder prose:
+  a defect the tooling was not pointed at, shipping silently. It is recorded
+  here because **the approved chart carries the identical exposure** — a
+  mean-of-12-waves figure can drift from the waves it was computed from, and
+  the only defence is computing it in code from the ingested file at build time
+  rather than transcribing it. The spec requires exactly that.
