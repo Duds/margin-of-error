@@ -301,6 +301,12 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   `#journalismSwingsChart` and an interactive poll widget, both rejected in 0001.
   Neither file was tracked by git, so the deletion was unrecoverable and was
   gated on that check. `python3 tools/build.py --check` still passes.
+- **Salvageable seat primaries from the archived model** — the prototype's
+  `CORE_TARGET_SEATS` carries real 2022 AEC division primary votes (Flynn 12.0,
+  Capricornia 14.6, Maranoa 11.8, Wright 12.1, Hunter 9.8, Paterson 7.9,
+  Durack 9.6, Hinkler 8.7). **Measurements, not forecasts**, and the input
+  Chart 02 and Chart 04 need. Verify every division against AEC before any use;
+  the archived banner records why the rest of that file cannot be cited.
 - **Seat boundary handling** — AEC redistributions change seat names and
   boundaries. A helper that resolves a historical seat to its current
   equivalent is needed before any cross-cycle seat comparison chart ships.
