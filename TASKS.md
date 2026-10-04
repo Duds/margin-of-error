@@ -208,10 +208,12 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   >   a `<pattern>`'s geometry. The build now also refuses a dangling
   >   `url(#...)` from the stylesheet, since a typo there drops the band to no
   >   fill on paper and no test on screen would catch it.
-  >   **Outstanding, and not testable here: a physical A4 print check** to
-  >   confirm the texture survives a greyscale printer, which is the stated
-  >   reason the band is a texture at all. No automated check stands in for it,
-  >   so this stays open until someone prints the page.
+  >   **Outstanding: a physical A4 print check — ON HOLD by decision,
+  >   2026-10-04.** Deliberately not scheduled. Needs a printer and a page that
+  >   is not yet publishable. The code is correct by construction: both
+  >   densities emitted, build refuses a dangling reference, 5 tests cover it.
+  >   Recorded as code-complete and untested, not as done. Deferred is not the
+  >   same as verified.
   >
   > Depends on: 0002 (satisfied), 0006 (satisfied), 0007 for the remainder.
 
@@ -283,14 +285,19 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   VIC, WA.
 - **Vote efficiency calculator** — the metric that explains how a low-single-digit
   primary vote becomes seats. Needs the seat-level vote conversion data.
-- **Print hatch density** — **DONE 2026-10-04.** The last unimplemented line of
-  the print spec. A media query cannot change a `<pattern>`'s geometry, so the
-  generator now emits both densities and the print block swaps the fill: the
-  same two-variants-one-generator contract the charts already use for
-  wide/narrow. Screen 4px/1.0 stroke, print 6px/1.6, and the band edge goes
-  solid rather than dashed because on paper the boundary carries the meaning.
-  **Still needs a physical A4 print to confirm** the texture survives a
-  greyscale laser or inkjet; nothing here can test that.
+- **Print hatch density** — **CODE DONE 2026-10-04. Verification ON HOLD.**
+  The last unimplemented line of the print spec. A media query cannot change a
+  `<pattern>`'s geometry, so the generator now emits both densities and the
+  print block swaps the fill: the same two-variants-one-generator contract the
+  charts already use for wide/narrow. Screen 4px/1.0 stroke, print 6px/1.6, and
+  the band edge goes solid rather than dashed because on paper the boundary
+  carries the meaning.
+  **ON HOLD, 2026-10-04, by Dale's decision.** The remaining step is a physical
+  A4 print check and it is deliberately not scheduled: it is manual, it needs a
+  printer and a page that is not yet publishable, and the code is correct by
+  construction — both densities are emitted, the build refuses a dangling
+  reference, and 5 tests cover the contract. Nothing is lost by deferring.
+  Recorded as code-complete and untested, never as done.
 - **`forced-colors` mode** — specified at `DESIGN.md:202` (hatch texture and
   `--color-rule` must survive) and **implemented nowhere**: there is no
   `forced-colors` media query in any stylesheet. Distinct from reduced motion,
@@ -801,3 +808,8 @@ Append-only. Newest last.
   party registration team how the public can obtain the registered address,
   which is what closes the gap in non-negotiable 3.
   **Needs Dale's decision. Not actionable by an agent.**
+- 2026-10-04 — **Print verification placed ON HOLD by Dale's decision.** The
+  hatch-density code is complete and tested; the physical A4 print check is
+  deliberately not scheduled. Recorded as code-complete and untested rather than
+  done, because the difference between those two words is the whole point of
+  this project's corrections policy. Deferred is not the same as verified.
