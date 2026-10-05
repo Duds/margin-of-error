@@ -334,13 +334,17 @@ count recorded.
 
 ## Ingested datasets
 
-Produced by `tools/ingest_roymorgan.py` from `roymorgan-pvi`. Reproducible: run
-against a saved copy of the page and the output is identical.
+Produced by `tools/ingest_roymorgan.py` from `roymorgan-pvi`, and by
+`tools/ingest_aec_seats.py` from the AEC downloads. Reproducible: run against
+the saved sources in `data/aec/raw/` and the output is identical.
 
 | File | Rows | What it is |
 |---|---|---|
 | `data/polls_roymorgan.csv` | 138 | Monthly PVI waves: field window, ALP, and the combined "Other Parties (ALL)" / "Indepen-dents (ALL)" cells. **`pvi_oned` is empty on every row by construction.** |
-| `data/roymorgan_election_results.csv` | 10 | Discrete One Nation primary vote by federal election, 1996 to 2025. **Cross-check only; every row requires AEC confirmation.** |
+| `data/polls_roymorgan_oned.csv` | 48 | **Discrete One Nation primary vote by fortnightly wave, 2018 to 2022.** Read from the second table on the same page, which carries a real One Nation column the monthly table lacks. 132 rows span 2013 to 2022; three are election results and are excluded by matching `\bElection\b`; the remainder that are blank for this party carry no figure. **This is the series every polling figure on the page is computed from.** |
+| `data/roymorgan_election_results.csv` | 10 | Discrete One Nation primary vote by federal election, 1996 to 2025. **Cross-check only; every row requires AEC confirmation.** Superseded for Chart 02 by `data/aec_election_results.csv`; retained for the 1996 row the AEC archive does not hold, and for the polling-versus-result comparison, which is cross-checked on both sides. |
+| `data/aec_election_results.csv` | 9 | **Primary vote and seats won at each federal general election, 2001 to 2025, from the AEC.** Both figures in one row, so the chart needs no cross-check. 1996 is absent: the AEC archive begins at 2001. |
+| `data/aec_by_election.csv` | 1 | **The Farrer 2026 by-election, kept in its own file.** A different kind of event on a different denominator, so a shared file would invite the comparison the chart must not make. Carries `plottable_on_general_election_series = no`, which the build checks. |
 
 Three fields are null on every poll row and must stay that way:
 
@@ -354,6 +358,21 @@ Three fields are null on every poll row and must stay that way:
 size. A band derived from a guessed `n` is fabricated precision in the visual
 language of honesty, which is the specific failure this project exists to
 expose.
+
+### Where the discrete series starts, and why
+
+The 48 usable waves are **contiguous from 2018 to 2022**. Earlier rows on that
+page are blank for this party, and 2017 is absent altogether. That is a
+property of the source, recorded rather than interpreted: the page carries no
+figures for this party before 2018 and does not say why, and this project does
+not guess. `charts/stats.py::contiguous_years()` derives the span from the data
+rather than hard-coding it, so the series range stated on the page is the range
+the data actually has.
+
+Consequence for the windows: 2019 has **5** preceding waves and 2022 has **12**,
+so the two figures on the page are means over different numbers of
+observations. Every mean is returned with `n_used` beside it, and the build
+refuses a page that states one count beside a mean taken over another.
 
 ### The denominator trap, enforced in code
 
@@ -374,7 +393,51 @@ on the monthly table. 7 regression tests cover this.
 
 ### A discontinuity in the election series
 
-| Election | Year | ON primary % |
+**Superseded 2026-10-05.** The table below is Roy Morgan's cross-check. The
+figures the page now states come from `data/aec_election_results.csv`, and the
+two agree to within **0.04 percentage points** at every one of the nine
+elections. The shape is identical; the figures are not the same figures, and
+the AEC's are the ones that ship.
+
+**The AEC series, which is what ships:**
+
+| Election | Year | AEC ab | ON primary % | Seats | House size |
+|---|---|---|---|---|---|
+| 2025 | May 3 | ON | 6.40 | 0 | 151 |
+| 2022 | May 21 | ON | 4.96 | 0 | 151 |
+| 2019 | May 18 | ON | 3.08 | 0 | 151 |
+| 2016 | July 2 | ON | 1.29 | 0 | 150 |
+| 2013 | September 7 | ON | 0.17 | 0 | 150 |
+| 2010 | August 21 | ON | 0.22 | 0 | 150 |
+| 2007 | November 24 | ON | 0.26 | 0 | 150 |
+| 2004 | October 9 | HAN | 1.19 | 0 | 150 |
+| 2001 | November 10 | HAN | 4.34 | 0 | 150 |
+
+Three things this table settled, none of which were known before it was pulled:
+
+- **The House did not always have 151 seats.** It returned 150 from 2001 to
+  2016 and 151 from 2019, verified by summing every party's national total in
+  each AEC party representation download. A seat share taken against a fixed
+  151 understates every earlier share by a fifth, and the error is invisible
+  because the seat line is drawn against zero either way.
+- **1996 has no AEC record.** The archive begins at 2001, so the "1996 to 2025"
+  span in the superseded table below cannot be sourced from the AEC at all.
+- **The party is named differently in every era.** `HAN` in 2001 and 2004, `ON`
+  from 2007, and "Pauline Hanson's One Nation" only from 2019. Matching on the
+  modern name drops five of the nine elections. This is the `AGENTS.md` gotcha
+  about matching on the AEC abbreviation per election, and it was live.
+
+The 2004-2016 block sits at 0.17-1.29 while 2001 and 2019-2025 sit at 3.08-6.40.
+That is not a smooth trend; it is a different measure of the same name. Below
+the 12.3% Senate-registration quota a party can still contest, but slate
+coverage and registered name differ across those cycles. Do not present 2001 to
+2025 as one continuous series without saying so — the chart marks the block
+rather than joining it into a single line.
+
+The superseded Roy Morgan cross-check, retained because the polling chart
+compares against it:
+
+| Election | Year | RM ON primary % |
 |---|---|---|
 | 2025 | May 3 | 6.4 |
 | 2022 | May 21 | 5.0 |
@@ -386,15 +449,6 @@ on the monthly table. 7 regression tests cover this.
 | 2004 | October 9 | 1.2 |
 | 2001 | November 10 | 4.3 |
 | 1996 | March 2 | 0.3 |
-
-The 2004-2016 block sits at 0.2-1.3 while 2001 and 2019-2025 sit at 3.1-6.4.
-That is not a smooth trend; it is a different measure of the same name. Below
-the 12.3% Senate-registration quota a party can still contest, but slate
-coverage and registered name differ across those cycles. Per `AGENTS.md`
-gotchas, series construction must match on the **AEC party abbreviation for
-each election** and record the fielded candidate count, not on the modern name.
-Do not present 1996 to 2025 as one continuous series until each row is verified
-against AEC.
 
 ---
 

@@ -1442,5 +1442,134 @@ class TestChartGateIsRedUntilAecConfirms(unittest.TestCase):
         self.assertIn("cross-check", (proc.stdout + proc.stderr).lower())
 
 
+class TestDocumentedFiguresMatchTheData(unittest.TestCase):
+    """The registry, chart specs and TASKS state figures in prose.
+
+    Prose is not generated, so it can drift from the data silently — and the
+    failure is invisible, because a wrong number in a sentence still renders as
+    a sentence. This checks the figures the documents state against the data,
+    so a data change that invalidates a documented claim fails the suite rather
+    than shipping.
+    """
+
+    ROOT = Path(__file__).resolve().parent.parent
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "build", cls.ROOT / "tools" / "build.py"
+        )
+        cls.build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.build)
+        cls.slots = cls.build.figure_slots()
+        cls.aec = list(
+            csv.DictReader((cls.ROOT / "data" / "aec_election_results.csv").open())
+        )
+
+    def doc(self, name: str) -> str:
+        return (self.ROOT / name).read_text()
+
+    def test_the_registry_aec_table_matches_the_ingested_rows(self):
+        """Every year, abbreviation, share, seat count and chamber size.
+
+        Compared on the numeric value rather than the printed string. The table
+        prints 6.40 where the CSV holds 6.4, and a test that insisted on a
+        literal match would be asserting a formatting choice rather than a fact.
+        """
+        registry = self.doc("docs/data-sources.md")
+        rows = {}
+        for line in registry.splitlines():
+            cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            if len(cells) == 6 and cells[0].isdigit() and len(cells[0]) == 4:
+                rows[int(cells[0])] = cells
+
+        for row in self.aec:
+            year = int(row["election_year"])
+            self.assertIn(year, rows, f"{year} missing from the registry table")
+            cells = rows[year]
+            self.assertEqual(cells[2], row["party_ab"], f"{year} abbreviation")
+            self.assertEqual(
+                float(cells[3]), float(row["primary_vote_pct"]), f"{year} share"
+            )
+            self.assertEqual(int(cells[4]), int(row["seats_won"]), f"{year} seats")
+            self.assertEqual(
+                int(cells[5]), int(row["chamber_size"]), f"{year} chamber size"
+            )
+
+        self.assertEqual(len(rows), len(self.aec), "registry table has extra rows")
+
+    def test_the_registry_does_not_overstate_the_cross_check_difference(self):
+        """It claimed 0.11pp; the real maximum is 0.04pp.
+
+        Found by computing it rather than trusting the sentence. The claim was
+        wrong in the direction that makes the cross-check look less reliable
+        than it is, which is the direction that matters.
+        """
+        rm = {
+            int(r["election_year"]): float(r["primary_vote_oned_pct"])
+            for r in csv.DictReader(
+                (self.ROOT / "data" / "roymorgan_election_results.csv").open()
+            )
+        }
+        worst = max(
+            abs(float(r["primary_vote_pct"]) - rm[int(r["election_year"])])
+            for r in self.aec
+        )
+        registry = self.doc("docs/data-sources.md")
+        self.assertIn(f"{worst:.2f} percentage points", registry)
+        self.assertNotIn("0.11 percentage points", registry)
+
+    def test_chart_specs_states_the_computed_gaps(self):
+        specs = self.doc("docs/chart-specs.md")
+        for year in ("2019", "2022"):
+            gap = self.slots[f"gap_{year}"]
+            magnitude = gap.lstrip("+−").lstrip("+")
+            self.assertIn(f"{magnitude} points", specs, f"{year} gap not stated")
+
+    def test_chart_specs_states_the_series_range_and_its_block(self):
+        specs = self.doc("docs/chart-specs.md")
+        # The spec spells small counts in words where it reads as prose, so
+        # accept either form rather than pinning a formatting choice.
+        count = len(self.aec)
+        self.assertTrue(
+            f"{count} general elections" in specs
+            or f"{count} general elections" in specs
+            or (count == 9 and "Nine general elections" in specs),
+            f"the spec does not state that the series is {count} elections",
+        )
+        block = [
+            float(r["primary_vote_pct"])
+            for r in self.aec
+            if 2004 <= int(r["election_year"]) <= 2016
+        ]
+        self.assertIn(f"{min(block):g} to {max(block):g}", specs)
+
+    def test_tasks_events_records_both_directions_of_gap(self):
+        tasks = self.doc("TASKS.md")
+        self.assertIn("points HIGH in 2019", tasks)
+        self.assertIn("points LOW in 2022", tasks)
+
+    def test_the_registry_marks_roymorgan_as_cross_check_only(self):
+        """The marker is what keeps the gate red. Removing it is working
+        around the gate rather than satisfying it."""
+        registry = self.doc("docs/data-sources.md")
+        entry = registry.split("source_id:        roymorgan-pvi")[1]
+        block = entry.split("```")[0]
+        self.assertIn("cross_check_only: yes", block)
+
+    def test_chart_specs_records_the_numbering_collision(self):
+        """Two entries claimed 02 once the seat chart moved forward.
+
+        Renumbering the old "Chart 02 — Seat margin" to 06 was the fix. Left
+        unrecorded, the next reader finds two charts called 02 and no way to
+        tell which one is built.
+        """
+        specs = self.doc("docs/chart-specs.md")
+        self.assertIn("RENUMBERED 2026-10-05", specs)
+        self.assertIn("Chart 06 — Seat margin", specs)
+
+
 if __name__ == "__main__":
     unittest.main()

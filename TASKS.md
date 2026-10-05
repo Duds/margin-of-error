@@ -241,6 +241,21 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   > assertion and the zero-width band assertion (BACKLOG: citation resolver).
   > **0007 is now blocked on data only:** tasks 0003 and 0004 must supply the
   > polling series and the AEC results.
+  > **STATUS 2026-10-05: BUILT AND GATED. BLOCKED ON 0003 ONLY.**
+  > Both charts are built on branch `charts-01-polling-vs-result` and verified
+  > in a browser at 320px and 1280px. The captions state computed figures, not
+  > typed ones, and nine build assertions now refuse an unsourced or
+  > mismatched figure — each one proven to fire by mutating a single input in a
+  > scratch copy.
+  > **`tools/build.py --check` exits 1, by design.** It refuses `chart-01.svg`
+  > and its narrow variant because their only source, `roymorgan-pvi`, is marked
+  > `cross_check_only: yes` in the registry. A test asserts the gate is still
+  > red, so it cannot be quietly loosened. **CI stays red until 0003 confirms
+  > the 2019 and 2022 results against the AEC.**
+  > **Chart 02 (seat efficiency) is not behind that gate.** Its figures come from
+  > the AEC's own per-election files, so it passes today and the two charts can
+  > ship independently. It is still awaiting Dale's keep-or-cut decision.
+  > Depends on: 0001, 0003, 0004.
 - **0008 — Responsive chart contract** — MOSTLY RESOLVED by 0006, remainder
   is chart-specific.
   > **Resolved and now house rules**, each measured in a browser:
@@ -1006,3 +1021,57 @@ Append-only. Newest last.
   and **Review Focus** (five inputs the spec implies but no test exercised, each
   pinned to the task owning the code). Those five are not hypothetical — four of
   them are edge shapes found in the live Roy Morgan source during this rewrite.
+
+- 2026-10-05 — **Both charts built; the finding is that polling was wrong in
+  both directions.** Computed at build time from
+  `data/polls_roymorgan_oned.csv`, never typed:
+  1. **Polling ran 0.60 points HIGH in 2019.** Five waves averaged 3.70 per
+     cent; the party recorded 3.1.
+  2. **Polling ran 1.29 points LOW in 2022.** Twelve waves averaged 3.71 per
+     cent; the party recorded 5.0.
+
+  Neither figure is smoothed, averaged across, or framed as a direction of
+  error. Two elections, opposite signs, small magnitudes. The page's claim is
+  that polling missed this party in both directions across two cycles, which
+  is an open test of the polling, not a verdict on it.
+
+  Two corrections to figures stated earlier in this log and in the spec, both
+  caught by recomputing rather than trusting the earlier number:
+  - The usable wave count is **48, not 49.** One row of the 132 on the source
+    page is the 2019 election *result*, sitting in the same column as the polls.
+  - The 2019 window is **5 waves, not 12.** Only five waves precede that
+    election; 2022 has twelve. So the two means are over different numbers of
+    observations, which is why every figure is labelled with the count it used.
+
+- 2026-10-05 — **The seat series came from the AEC, not from a cross-check,
+  and it changed two things the spec had wrong.**
+  1. **The House did not always have 151 seats.** It returned 150 from 2001 to
+     2016 and 151 from 2019, verified by summing every party's national total in
+     each AEC party representation download. The spec said to divide by 151
+     with "the denominator is not a parameter"; that is wrong for six of the
+     nine elections, so it is a parameter now, read from each source.
+  2. **1996 has no AEC record at all.** The archive begins at 2001, so the
+     "1996 to 2025, ten general elections" span in the approved spec is
+     unsourceable as written. 2001 is sourced from the AEC's official
+     statistics ZIP instead, because the live tally room for that election
+     carries a standing disclaimer that its results "are not final".
+
+  All nine general elections now read from AEC primary sources, 0 seats at each.
+  The party's only seat was the Farrer by-election in 2026, which is annotated
+  on the chart and never plotted, because a by-election is one division on its
+  own electorate with no comparable denominator.
+
+- 2026-10-05 — **The publication gate is installed and deliberately red.**
+  `tools/build.py --check` exits 1, refusing `chart-01.svg` and its narrow
+  variant because their only source is marked `cross_check_only: yes`. This is
+  the gate working and it clears when 0003 confirms the results. A test asserts
+  the gate is still red, so it cannot be quietly loosened.
+
+  Nine assertions were proven to fire by mutating one input each in a scratch
+  copy, which is how three of them were caught **passing on the exact defect
+  each was written to catch**: one compared a caption figure against a row count
+  derived from the same file, one tagged every row with the value it was about
+  to be checked against, and one had nothing in the repository it could fire on.
+  A fourth accepted the correct chamber size on the wrong election, because a
+  membership test cannot tell the difference between 151 being right and 151
+  being right-for-2019.
