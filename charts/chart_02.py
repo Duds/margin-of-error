@@ -27,10 +27,10 @@ the flag rather than rely on remembering the rule.
 
 **The 2004 to 2016 block is not the same measure as the years around it.** The
 party polled at its lowest levels of the whole series across those five
-elections, against 4.34% in 2001 and 3.08% in 2019. That is slate coverage, not
-a collapse and recovery. Joining the block into a single line asserts a
-continuity the data does not support, so it is drawn as a marked span with its
-own note.
+elections, against more than four per cent in 2001 and 2019. That is slate
+coverage, not a collapse and recovery. Joining the block into a single line
+asserts a continuity the data does not support, so it is drawn as a marked span
+with its own note.
 
 **The House has not always had 151 seats.** It returned 150 from 2001 to 2016
 and 151 from 2019, and the share is computed against each election's own chamber

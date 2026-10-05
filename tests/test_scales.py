@@ -1242,5 +1242,205 @@ class TestCaptionFiguresAreInjected(unittest.TestCase):
         self.assertNotIn("The shaded block marks 2001 to 2016", built)
 
 
+class TestChartGateAssertions(unittest.TestCase):
+    """The gates that refuse to publish an unconfirmed or mismatched figure.
+
+    This is the safety net for the whole plan, so every one of these must be
+    seen to fire. An assertion that has never failed has not been tested.
+
+    The first is expected to be RED in the real repository until task 0003
+    delivers AEC-confirmed results. That is the gate working, not a bug.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "build", Path(__file__).resolve().parent.parent / "tools" / "build.py"
+        )
+        cls.build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.build)
+
+    REGISTRY = "source_id: roymorgan-pvi\ncross_check_only: yes\n"
+
+    def test_cross_check_only_ids_are_refused(self):
+        """The gate. Until AEC confirms, this must fail."""
+        svg = '<svg data-source-id="roymorgan-pvi"></svg>'
+        problems = self.build.unsourced_result_problems(
+            "chart-01.svg", svg, self.REGISTRY
+        )
+        self.assertTrue(problems)
+        self.assertIn("cross-check", problems[0].lower())
+
+    def test_aec_confirmed_id_clears_the_gate(self):
+        registry = "source_id: aec-hor-2022\n"
+        svg = '<svg data-source-id="aec-hor-2022"></svg>'
+        self.assertEqual(
+            self.build.unsourced_result_problems("c.svg", svg, registry), []
+        )
+
+    def test_one_confirmed_id_among_cross_check_ones_clears_the_gate(self):
+        """Chart 02 declares four ids and none is cross-check-only.
+
+        The rule is "fails if EVERY resolved id is cross-check-only", not "fails
+        if any is". A chart legitimately drawing on a cross-checked poll series
+        and a confirmed election result must pass on the strength of the
+        confirmed one.
+        """
+        registry = (
+            "source_id: roymorgan-pvi\ncross_check_only: yes\n"
+            "source_id: aec-hor-2025-fp-by-party\n"
+        )
+        svg = '<svg data-source-id="roymorgan-pvi aec-hor-2025-fp-by-party"></svg>'
+        self.assertEqual(
+            self.build.unsourced_result_problems("c.svg", svg, registry), []
+        )
+
+    def test_populated_margin_is_refused(self):
+        problems = self.build.poll_field_problems(
+            [{"wave": "w1", "margin_of_error": "2.5",
+              "fielded_start": "2022-01-01",
+              "publishes_margin_of_error": "no"}]
+        )
+        self.assertTrue(problems)
+
+    def test_null_margin_with_declared_absence_passes(self):
+        problems = self.build.poll_field_problems(
+            [{"wave": "w1", "margin_of_error": "",
+              "fielded_start": "2022-01-01",
+              "publishes_margin_of_error": "no"}]
+        )
+        self.assertEqual(problems, [])
+
+    def test_missing_field_window_is_refused(self):
+        problems = self.build.poll_field_problems(
+            [{"wave": "w1", "margin_of_error": "", "fielded_start": "",
+              "publishes_margin_of_error": "no"}]
+        )
+        self.assertTrue(problems)
+
+    def test_by_election_in_the_series_is_refused(self):
+        rows = [{"year": 2019, "is_by_election": "no"},
+                {"year": 2026, "is_by_election": "yes"}]
+        self.assertTrue(self.build.plotted_row_problems(rows))
+
+    def test_general_elections_only_pass(self):
+        rows = [{"year": y, "is_by_election": "no"} for y in (2001, 2019, 2025)]
+        self.assertEqual(self.build.plotted_row_problems(rows), [])
+
+    def test_label_count_must_match_the_arithmetic(self):
+        self.assertTrue(self.build.label_count_problems({2019: (5, 12)}))
+
+    def test_matching_label_counts_pass(self):
+        self.assertEqual(self.build.label_count_problems({2019: (5, 5)}), [])
+
+    # -- The remaining five, each proven to fire ------------------------
+
+    def test_a_dataset_literal_in_a_generator_is_refused(self):
+        problems = self.build.generator_literal_problems(
+            {"charts/chart_01.py": "GAP = 3.70\n"}
+        )
+        self.assertTrue(problems)
+
+    def test_clean_generator_source_passes(self):
+        self.assertEqual(
+            self.build.generator_literal_problems({"charts/chart_01.py": "x = 1\n"}),
+            [],
+        )
+
+    def test_a_wave_outside_the_range_must_declare_why_it_is_blank(self):
+        rows = [{"year": 2015, "wave": "w", "blank_reason": ""},
+                {"year": 2016, "wave": "w2", "blank_reason": ""}]
+        self.assertTrue(self.build.blank_reason_problems(rows, (2016, 2022)))
+
+    def test_a_declared_blank_passes(self):
+        rows = [{"year": 2015, "wave": "w", "blank_reason": "no candidates"},
+                {"year": 2016, "wave": "w2", "blank_reason": ""}]
+        self.assertEqual(self.build.blank_reason_problems(rows, (2016, 2022)), [])
+
+    def test_a_wrong_seat_denominator_is_refused(self):
+        """2004 had 150 seats. A row claiming 151 is the right number on the
+        wrong election, which a bare membership check would pass."""
+        problems = self.build.seat_denominator_problems(
+            [{"election_year": "2004", "seats_won": "0", "chamber_size": "151"}],
+            expected_small=150,
+        )
+        self.assertTrue(problems)
+
+    def test_an_impossible_chamber_size_is_refused(self):
+        problems = self.build.seat_denominator_problems(
+            [{"election_year": "2019", "seats_won": "0", "chamber_size": "300"}],
+            expected_small=150,
+        )
+        self.assertTrue(problems)
+
+    def test_the_real_two_chamber_sizes_pass(self):
+        rows = [
+            {"election_year": "2004", "seats_won": "0", "chamber_size": "150"},
+            {"election_year": "2025", "seats_won": "0", "chamber_size": "151"},
+        ]
+        self.assertEqual(
+            self.build.seat_denominator_problems(rows, expected_small=150), []
+        )
+
+    def test_house_and_senate_sharing_an_axis_is_refused(self):
+        problems = self.build.chamber_axis_problems(
+            '<svg><desc>House of Representatives and Senate results'
+            "</desc></svg>"
+        )
+        self.assertTrue(problems)
+
+    def test_mentioning_one_chamber_alone_passes(self):
+        """Neither current chart names a chamber at all.
+
+        Chart 01 is polling against results and Chart 02 says "the House" in
+        prose rather than in the figure. So the gate has nothing to fire on in
+        the real repository, and a test that adds "Senate" alone proves
+        nothing: only one chamber is named, which is allowed. Both chambers must
+        be named for the scale to be shared.
+        """
+        self.assertEqual(
+            self.build.chamber_axis_problems("<svg><text>the House</text></svg>"), []
+        )
+        self.assertEqual(
+            self.build.chamber_axis_problems("<svg><text>Senate</text></svg>"), []
+        )
+        self.assertEqual(
+            self.build.chamber_axis_problems("<svg><text>a poll</text></svg>"), []
+        )
+
+    def test_caption_wave_count_must_equal_the_rows_used(self):
+        self.assertTrue(self.build.caption_count_problems(48, 47))
+
+    def test_matching_caption_count_passes(self):
+        self.assertEqual(self.build.caption_count_problems(48, 48), [])
+
+
+class TestChartGateIsRedUntilAecConfirms(unittest.TestCase):
+    """The real repository must fail, and for the stated reason.
+
+    This asserts the gate is closed rather than working around it. If it ever
+    goes green before task 0003, something loosened an assertion.
+    """
+
+    def test_the_build_check_fails_on_the_unconfirmed_poll_series(self):
+        import subprocess
+
+        root = Path(__file__).resolve().parent.parent
+        proc = subprocess.run(
+            [sys.executable, "tools/build.py", "--check"],
+            cwd=root, capture_output=True, text=True,
+        )
+        self.assertNotEqual(
+            proc.returncode, 0,
+            "tools/build.py --check passed, but the 2019 and 2022 results are "
+            "still Roy Morgan's cross-check rather than the AEC's record. "
+            "Either task 0003 has landed and this test should be replaced, or "
+            "an assertion was loosened.",
+        )
+        self.assertIn("cross-check", (proc.stdout + proc.stderr).lower())
+
+
 if __name__ == "__main__":
     unittest.main()

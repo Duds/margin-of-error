@@ -254,9 +254,20 @@ title:            Federal Voting - Primary Voting Intention (%), with
                   1996-2025
 publisher:        Roy Morgan Research
 tier:             B
+cross_check_only: yes
 retrieved:        2026-10-03
 url:              https://www.roymorgan.com/morgan-poll/primary-voting-intention/
 covers:           national primary vote intention, monthly, 2013 to 2025
+caveats:          **cross_check_only: yes.** A source of record for published
+                  polling figures, but not for an election result. Roy Morgan
+                  publishes its own cross-check of the count; it is not the
+                  Australian Electoral Commission's record, so any figure
+                  presented as what the ballot produced must be confirmed
+                  against the AEC before publication. This is what keeps
+                  `tools/build.py --check` red: a chart citing only this id is
+                  refused until task 0003 confirms the results. Do not remove
+                  the marker to make the build pass — that is the gate being
+                  worked around rather than satisfied.
 ```
 
 What the page publishes:
