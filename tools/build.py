@@ -291,9 +291,30 @@ def add_narrow_attrs(svg: str) -> str:
         suffixed = f"{original}-narrow"
         rest = rest.replace(f'id="{original}"', f'id="{suffixed}"')
         tag = tag.replace(f'id="{original}"', f'id="{suffixed}"')
-        tag = tag.replace(f'aria-labelledby="{original}', f'aria-labelledby="{suffixed}')
-        # rewrite any internal url(#id) references in the body
+        # rewrite internal url(#id) references in the body
         rest = rest.replace(f"url(#{original})", f"url(#{suffixed})")
+
+    # aria-labelledby is rewritten last, as a whole attribute, and by token
+    # rather than by prefix.
+    #
+    # The previous version did `tag.replace(f'aria-labelledby="{original}', ...)`
+    # inside the loop above, which only matches when the id is the FIRST token
+    # of the attribute. `aria-labelledby="chart-01-title chart-01-desc"` has
+    # two ids, so the title was suffixed and the desc was not: the narrow chart
+    # pointed at the WIDE chart's desc while its own desc went unreferenced.
+    #
+    # That is invisible in the SVG, passes every id-resolves check because the
+    # referenced id does exist, and is read aloud by a screen reader as the
+    # wrong chart's description. Found by measuring aria-labelledby against the
+    # ids each SVG actually contains.
+    own_ids = set(ids)
+
+    def _suffix_labelledby(match: re.Match) -> str:
+        tokens = match.group(1).split()
+        rewritten = [f"{t}-narrow" if t in own_ids else t for t in tokens]
+        return f'aria-labelledby="{" ".join(rewritten)}"'
+
+    tag = re.sub(r'aria-labelledby="([^"]+)"', _suffix_labelledby, tag)
 
     return tag + rest
 

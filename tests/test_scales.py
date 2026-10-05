@@ -352,6 +352,188 @@ class TestRoyMorganColumnMapping(unittest.TestCase):
 
 
 
+class TestEveryTokenUsedIsDefined(unittest.TestCase):
+    """A `var()` naming a token the stylesheet never declares paints nothing.
+
+    Not an error. The SVG renders, the attribute is present, the attribute
+    looks right, and the fill is simply absent. `--band-hatch` was documented
+    in DESIGN.md and used by nine polygons in Chart 02 while never being
+    declared, so the shaded region between the two series was invisible and
+    nothing failed. Only measuring the computed fill showed it.
+    """
+
+    ROOT = Path(__file__).resolve().parent.parent
+    CSS = ROOT / "src" / "margin-of-error.css"
+
+    def declared_tokens(self) -> set[str]:
+        css = self.CSS.read_text()
+        return set(re.findall(r"(--[\w-]+)\s*:", css))
+
+    def tokens_used_in_charts(self) -> set[str]:
+        used: set[str] = set()
+        for svg in sorted((self.ROOT / "charts").glob("chart-*.svg")):
+            used |= set(re.findall(r"var\((--[\w-]+)", svg.read_text()))
+        return used
+
+    def test_no_chart_uses_an_undefined_token(self):
+        declared = self.declared_tokens()
+        for token in sorted(self.tokens_used_in_charts()):
+            self.assertIn(
+                token, declared,
+                f"{token} is used by a chart but never declared in the "
+                f"stylesheet, so it resolves to an empty value and paints "
+                f"nothing",
+            )
+
+    def test_the_uncertainty_tokens_are_all_declared(self):
+        """DESIGN.md lists four. All four must exist."""
+        declared = self.declared_tokens()
+        for token in (
+            "--band-fill",
+            "--band-hatch",
+            "--band-edge",
+        ):
+            self.assertIn(token, declared, f"{token} missing from the stylesheet")
+
+    def test_every_pattern_reference_resolves_within_its_own_svg(self):
+        """`fill="url(#hatch-mo)"` naming a pattern that is not in this SVG.
+
+        Three separate defects, one shape. `--band-hatch` was never declared at
+        all; then the narrow copy referenced the wide chart's pattern id, which
+        exists in the document but not inside the narrow SVG that asks for it.
+        Either way the fill silently resolves to nothing and the region is
+        invisible.
+
+        Checked per variant, because "the id exists somewhere on the page" is
+        exactly the wrong question — it is the one that let this through.
+        """
+        for svg_path in sorted((self.ROOT / "charts").glob("chart-*.svg")):
+            svg = svg_path.read_text()
+            declared = set(re.findall(r'<pattern[^>]*id="([^"]+)"', svg))
+            # url(#id) references, including any the build will rewrite later
+            referenced = set(re.findall(r"url\(#([^)]+)\)", svg))
+            for ref in sorted(referenced):
+                self.assertIn(
+                    ref, declared,
+                    f"{svg_path.name}: fill references #{ref}, which this SVG "
+                    f"does not define. Declared here: {sorted(declared)}",
+                )
+
+    def test_the_narrow_band_rule_targets_the_suffixed_pattern(self):
+        """The narrow SVG's pattern is `#hatch-mo-narrow`, not `#hatch-mo`."""
+        css = self.CSS.read_text()
+        self.assertRegex(
+            css,
+            r"\.chart-narrow\s+\.band\s*\{[^}]*fill:\s*url\(#hatch-mo-narrow\)",
+            "no screen rule points the narrow variant's bands at its own "
+            "suffixed pattern id",
+        )
+
+    def test_printed_bands_carry_the_class_the_print_rules_target(self):
+        """The print stylesheet swaps the hatch via `.band`.
+
+        An element with a `fill` attribute but no class is inert to all of it,
+        so the coarser print pattern never reached the shaded region. Both the
+        class and the fill have to be present: the fill styles the screen, the
+        class is what the print rules select on.
+        """
+        for name in ("chart-02.svg", "chart-02-narrow.svg"):
+            svg = (self.ROOT / "charts" / name).read_text()
+            polys = re.findall(r"<polygon[^>]*>", svg)
+            self.assertTrue(polys, f"{name} has no shaded regions")
+            for poly in polys:
+                self.assertIn('class="band"', poly, f"{name}: {poly[:60]}")
+
+
+class TestNarrowVariantReferences(unittest.TestCase):
+    """The narrow copy must point at its own title and desc, not the wide one's.
+
+    Found by measuring `aria-labelledby` against the ids each SVG actually
+    contains, not by reading either file. The cause was a prefix match:
+
+        tag.replace(f'aria-labelledby="{original}', ...)
+
+    which only fires when the id is the FIRST token of the attribute. With two
+    ids, `aria-labelledby="chart-01-title chart-01-desc"`, the title was
+    suffixed and the desc was not. So the narrow chart pointed at the WIDE
+    chart's desc while its own desc went unreferenced.
+
+    Invisible three ways: the SVG renders identically, every id resolves
+    because the wide desc genuinely exists, and the narrow variant is
+    display:none at wide widths where nobody inspects the attribute. A screen
+    reader is the only place it shows up, announcing the wrong description.
+    """
+
+    ROOT = Path(__file__).resolve().parent.parent
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "build", cls.ROOT / "tools" / "build.py"
+        )
+        cls.build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.build)
+
+    NARROW = (
+        '<svg role="img" aria-labelledby="chart-01-title chart-01-desc">'
+        '<title id="chart-01-title">T</title>'
+        '<desc id="chart-01-desc">D</desc>'
+        '<defs><pattern id="hatch-mo" width="4" height="4"></pattern></defs>'
+        '<rect fill="url(#hatch-mo)" />'
+        "</svg>"
+    )
+
+    def labelledby_of(self, svg: str) -> list[str]:
+        import re
+
+        m = re.search(r'aria-labelledby="([^"]+)"', svg)
+        return m.group(1).split()
+
+    def ids_in(self, svg: str) -> set[str]:
+        import re
+
+        return set(re.findall(r'id="([^"]+)"', svg))
+
+    def test_both_ids_are_suffixed_not_just_the_first(self):
+        out = self.build.add_narrow_attrs(self.NARROW)
+        self.assertEqual(
+            self.labelledby_of(out),
+            ["chart-01-title-narrow", "chart-01-desc-narrow"],
+        )
+
+    def test_every_labelledby_token_belongs_to_the_narrow_svg(self):
+        out = self.build.add_narrow_attrs(self.NARROW)
+        own = self.ids_in(out)
+        dangling = [t for t in self.labelledby_of(out) if t not in own]
+        self.assertEqual(dangling, [], f"narrow chart points at {dangling}")
+
+    def test_narrow_never_shares_an_id_with_the_wide_copy(self):
+        out = self.build.add_narrow_attrs(self.NARROW)
+        for token in self.labelledby_of(out):
+            self.assertTrue(token.endswith("-narrow"), f"{token} unsuffixed")
+
+    def test_pattern_references_are_rewritten(self):
+        out = self.build.add_narrow_attrs(self.NARROW)
+        self.assertIn("url(#hatch-mo-narrow)", out)
+        self.assertNotIn('fill="url(#hatch-mo)"', out)
+
+    def test_the_committed_page_has_no_dangling_labelledby(self):
+        """End to end, on the built output rather than the helper."""
+        import re
+
+        built = self.build.build(
+            (self.ROOT / "src" / "index.template.html").read_text()
+        )
+        dangling = []
+        for m in re.finditer(r"<svg[^>]*aria-labelledby=\"([^\"]+)\"", built):
+            tokens = m.group(1).split()
+            own = set(re.findall(r'<(?:title|desc) id="([^"]+)"', built[m.start():]))
+            dangling += [t for t in tokens if t not in own]
+        self.assertEqual(dangling, [], f"dangling aria-labelledby: {dangling}")
+
+
 class TestSvgReferences(unittest.TestCase):
     """Internal references must resolve, in the markup AND in the stylesheet.
 

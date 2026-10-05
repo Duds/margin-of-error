@@ -23,15 +23,15 @@
 <text x="94" y="206.9" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">7%</text>
 <line x1="104" y1="169.0" x2="1044" y2="169.0" stroke="var(--color-rule)" stroke-width="1" stroke-dasharray="2 4" />
 <text x="94" y="173.0" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">8%</text>
-<polygon points="104.0,440.0 208.4,440.0 208.4,293.0 104.0,293.0" fill="var(--band-hatch)" stroke="none" />
-<polygon points="208.4,440.0 312.9,440.0 312.9,399.7 208.4,399.7" fill="var(--band-hatch)" stroke="none" />
-<polygon points="312.9,440.0 417.3,440.0 417.3,431.2 312.9,431.2" fill="var(--band-hatch)" stroke="none" />
-<polygon points="417.3,440.0 521.8,440.0 521.8,432.5 417.3,432.5" fill="var(--band-hatch)" stroke="none" />
-<polygon points="521.8,440.0 626.2,440.0 626.2,434.2 521.8,434.2" fill="var(--band-hatch)" stroke="none" />
-<polygon points="626.2,440.0 730.7,440.0 730.7,396.3 626.2,396.3" fill="var(--band-hatch)" stroke="none" />
-<polygon points="730.7,440.0 835.1,440.0 835.1,335.7 730.7,335.7" fill="var(--band-hatch)" stroke="none" />
-<polygon points="835.1,440.0 939.6,440.0 939.6,272.0 835.1,272.0" fill="var(--band-hatch)" stroke="none" />
-<polygon points="939.6,440.0 1044.0,440.0 1044.0,223.2 939.6,223.2" fill="var(--band-hatch)" stroke="none" />
+<polygon class="band" points="104.0,440.0 208.4,440.0 208.4,293.0 104.0,293.0" fill="var(--band-hatch)" stroke="none" />
+<polygon class="band" points="208.4,440.0 312.9,440.0 312.9,399.7 208.4,399.7" fill="var(--band-hatch)" stroke="none" />
+<polygon class="band" points="312.9,440.0 417.3,440.0 417.3,431.2 312.9,431.2" fill="var(--band-hatch)" stroke="none" />
+<polygon class="band" points="417.3,440.0 521.8,440.0 521.8,432.5 417.3,432.5" fill="var(--band-hatch)" stroke="none" />
+<polygon class="band" points="521.8,440.0 626.2,440.0 626.2,434.2 521.8,434.2" fill="var(--band-hatch)" stroke="none" />
+<polygon class="band" points="626.2,440.0 730.7,440.0 730.7,396.3 626.2,396.3" fill="var(--band-hatch)" stroke="none" />
+<polygon class="band" points="730.7,440.0 835.1,440.0 835.1,335.7 730.7,335.7" fill="var(--band-hatch)" stroke="none" />
+<polygon class="band" points="835.1,440.0 939.6,440.0 939.6,272.0 835.1,272.0" fill="var(--band-hatch)" stroke="none" />
+<polygon class="band" points="939.6,440.0 1044.0,440.0 1044.0,223.2 939.6,223.2" fill="var(--band-hatch)" stroke="none" />
 <polyline points="156.2,440.0 260.7,440.0 365.1,440.0 469.6,440.0 574.0,440.0 678.4,440.0 782.9,440.0 887.3,440.0 991.8,440.0" fill="none" stroke="var(--color-ink)" stroke-width="2.5" />
 <polyline points="156.2,293.0 260.7,399.7 365.1,431.2 469.6,432.5 574.0,434.2 678.4,396.3 782.9,335.7 887.3,272.0 991.8,223.2" fill="none" stroke="var(--color-ink)" stroke-width="2.5" />
 <circle cx="156.2" cy="293.0" r="5" fill="var(--color-ink)" />

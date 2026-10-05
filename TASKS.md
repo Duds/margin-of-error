@@ -255,7 +255,38 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   > **Chart 02 (seat efficiency) is not behind that gate.** Its figures come from
   > the AEC's own per-election files, so it passes today and the two charts can
   > ship independently. It is still awaiting Dale's keep-or-cut decision.
-  > Depends on: 0001, 0003, 0004.
+  >
+  > **Task 0008 VERIFIED 2026-10-05.** Measured in a browser at 320, 640 and
+  > 1280px. Four defects found, all by measuring rather than reading, and none
+  > of them visible in the source:
+  > 1. **At 640px the wide variant rendered 8.61px labels** — the worst of any
+  >    width, and under the DESIGN.md floor of 16px. The breakpoint showed the
+  >    wide copy in a 577px track when it is drawn for 1072. Raised to 1100px,
+  >    so narrow serves 320 and 640 (10.10px and 21.98px) and wide only at
+  >    1280 (16.0px, exactly the floor).
+  > 2. **`--band-hatch` was never declared.** DESIGN.md specifies it as
+  >    `url(#hatch-mo)` and nine Chart 02 polygons used it, but no rule defined
+  >    it, so it resolved to an empty value and the shaded region between the
+  >    two series painted nothing. Not an error: the SVG renders, the attribute
+  >    is present, and an absent fill is simply no paint.
+  > 3. **The narrow variant referenced the wide chart's pattern id.** Its own
+  >    pattern is `#hatch-mo-narrow`, so `#hatch-mo` resolved against an id not
+  >    in its SVG — again invisible, and at the width most readers see.
+  > 4. **`aria-labelledby` was only rewritten for its first token.** With
+  >    `aria-labelledby="chart-01-title chart-01-desc"`, the title was suffixed
+  >    and the desc was not, so each narrow chart pointed at the **wide** chart's
+  >    description while its own went unreferenced. Every id resolves, because
+  >    the wide desc genuinely exists; only a screen reader announces it.
+  >
+  > Reduced motion honoured: zero animations and zero transitions under
+  > `prefers-reduced-motion: reduce`. No JS dependency: `main` is fully opaque
+  > with 3,134 characters and nothing is left hidden. Both charts keep two
+  > variants in the accessibility tree at every width.
+  >
+  > Confirmed the by-election reads as an annotation: its text sits at y=81-122,
+  > entirely above the series range of y=223-440, and the chart carries exactly
+  > 18 markers for 9 elections — no tenth point.
+  > Depends on: 0001, 0003, 0004.</new_string>
 - **0008 — Responsive chart contract** — MOSTLY RESOLVED by 0006, remainder
   is chart-specific.
   > **Resolved and now house rules**, each measured in a browser:

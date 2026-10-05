@@ -395,8 +395,12 @@ def render(viewport: str, panels: dict) -> str:
         half = slot / 2
         vote_y = y(r["primary_pct"])
         seat_y = y(r["seat_pct"])
+        # class="band" is load-bearing: the print stylesheet swaps the hatch to
+        # the coarser print pattern and drops the dashed edge via .band, and an
+        # element without the class is inert to all of it. The fill attribute
+        # alone styles the screen rendering and overrides nothing on paper.
         out.append(
-            f'<polygon points="{cx - half:.1f},{seat_y:.1f} '
+            f'<polygon class="band" points="{cx - half:.1f},{seat_y:.1f} '
             f'{cx + half:.1f},{seat_y:.1f} '
             f'{cx + half:.1f},{vote_y:.1f} '
             f'{cx - half:.1f},{vote_y:.1f}" '
