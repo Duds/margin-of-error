@@ -452,29 +452,40 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
 - **Chart 01 panel-2 title collides with the 2022 result marker (wide only).**
   Found 2026-10-18 by eye on the recaptured 1280px screenshot, after the
   breakpoint work. `verify.mjs` reports `overlap=0` because it only checks
-  text-against-text; this is text-against-line, which no check covers. Exact
-  geometry: the title baseline is at y=227.2 and its last glyph ends at
-  x=795.2; the 2022 result cap bar spans x=796-822 at y=223.7. They touch, so
-  "gave" reads as struck through by the marker.
-  > **The cause is a vertical-space conflict, not a bad constant.** Panel 1's
-  > year/value labels sit at y 196-209, so panel 2's title is pushed below them
-  > to baseline 227.2 — which is *inside* panel 2's own plot, because
-  > `span_top` is 209.44 and the code only moves `span_top` down in the
-  > `span_title_y < gap_bottom + 64` branch, which this case does not take. The
-  > title is therefore drawn over the plot area, and the 2022 marker is in it.
+  text-against-text; this is text-against-line, which no check covers.
+  > **Measured in the browser with `getBBox`, not inferred from the source**,
+  > because the first version of this note recorded the wrong numbers after
+  > quoting a stale code comment. Panel 1's year labels occupy y 166.2-188.2.
+  > Panel 2's title occupies y 209.2-232.2 and runs from x=104 to x=795.2. The
+  > 2022 result cap bar spans x 796-822 at y=223.7, which is inside the title's
+  > vertical band, and clears its last glyph by **0.8px**. Sub-pixel is not the
+  > same as clear: at 1:1 the two read as one mark, and "gave" looks struck
+  > through.
+  > **The cause is a guard that cannot fire, not a bad constant.** With
+  > `plot.top=56`, `box_h=274`, `GAP_PANEL_BOTTOM=0.34` and
+  > `SPAN_PANEL_TOP=0.56`: `gap_bottom` is 149.16 and `span_top` is 209.44.
+  > `span_title_y` takes `max(span_top - 14, gap_bottom + 78)` =
+  > max(195.44, **227.16**) = 227.16, so the title is placed by panel 1's
+  > clearance, not by panel 2's top. The branch that would lower `span_top` to
+  > make room is `if span_title_y < gap_bottom + 64`, i.e. `227.16 < 213.16`,
+  > which is **false** — and false precisely when the title has been pushed
+  > furthest down, which is the only case that needs the room. So the title
+  > lands 17.8 units below `span_top`, inside its own plot, and the marker is in
+  > it. The guard's direction is the bug; changing a number cannot fix it.
   > `chart_01.py` records this placement being wrong in "the first two passes",
-  > so a third unilateral tweak is not the answer; it needs the author's eye on
-  > the rendered chart.
-  > Three real options, each a decision: (a) shorten the title so its last glyph
-  > clears x=796 — editorial; (b) give panel 2 a dedicated title row above its
-  > plot and shrink the plot to match — geometry, changes the panel split; (c)
-  > move panel 1's value labels above its bars instead of below, freeing the row
-  > — geometry, changes how panel 1 reads. Recommend deciding with the chart in
-  > front of you, then adding a text-against-line check to `verify.mjs` so it
-  > cannot silently return.
+  > so a third tweak of the same constants is not the answer.
+  > Three real options, each a decision: (a) make the guard's condition about
+  > `span_top` rather than about `gap_bottom`, so the plot always starts below
+  > its own title — geometry, and the likely right fix; (b) shorten the title so
+  > its last glyph clears x=796 — editorial, and still leaves the title inside
+  > the plot; (c) move panel 1's value labels above its bars, freeing the row —
+  > changes how panel 1 reads. Recommend deciding with the chart in front of
+  > you, then adding a text-against-line check to `verify.mjs`, because the
+  > collision is invisible to every check that exists today.
   Not caused by this PR's breakpoint change: the screenshots are byte-identical
   before and after it, and the collision is in the committed chart SVG already
   on `main` since `d5bf306`.
+
 
 - **Corrections policy page** — `docs/corrections.md` exists as an internal
   register; it needs a public-facing version and a route for readers to report
@@ -1417,3 +1428,22 @@ Append-only. Newest last.
   set taken before the change — which is the expected result, since 320, 640 and
   1280 all sit on the same side of the new breakpoint as they did of the old, and
   it also confirms the capture harness is deterministic.
+
+- 2026-10-18 — **The BACKLOG note recording the Chart 01 title collision quoted
+  a code comment instead of measuring, and got the numbers wrong.** The first
+  version said panel 1's year labels sit at "y 196-209", which is what
+  `chart_01.py`'s comment about the two earlier passes asserts. Measured with
+  `getBBox` in the browser they occupy **y 166.2-188.2**. The comment describes
+  a geometry that no longer exists; the code changed and the prose did not.
+
+  The conclusion survived — the title's last glyph clears the 2022 result cap
+  bar by 0.8px, and the guard that should lower `span_top` cannot fire — but the
+  recorded evidence did not, and the whole point of the entry is that someone
+  should be able to fix this without re-measuring. Wrong numbers in a
+  measurement note are worse than no note, because they are trusted.
+
+  Corrected in place, with the derivation now shown as arithmetic
+  (`max(span_top - 14, gap_bottom + 78)` = max(195.44, 227.16) = 227.16, so the
+  branch testing `227.16 < 213.16` is false exactly when the room is needed), and
+  the root cause named: the guard's condition points at `gap_bottom` when it
+  needs to point at `span_top`. Option (a) is now stated as the likely fix.
