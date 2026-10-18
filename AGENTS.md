@@ -193,4 +193,12 @@ verifiable CDN with an integrity hash recorded in `docs/data-sources.md`.
   registered nothing and seven of nine AEC elections were unciteable. List a
   family's years in a `years:` field. A family with no `years:` registers
   nothing by design, and `test_every_ingested_aec_source_id_resolves` fails if
-  the data cites an id the registry does not hold.
+  the data cites an id the registry does not hold.- **Measure at the width your rule governs.** Discovered 2026-10-18, and it is
+  the second time: task 0008 set the chart breakpoint at 1100px from readings
+  taken at 320, 640 and 1280px, and never at 1100px itself. The wide variant
+  reaches the 16px floor at 1135px, so 1100-1134px was rendering 15.48px. A
+  threshold derived from measurements that exclude the threshold is a guess
+  dressed as a finding. When you set a limit from data, measure at the limit and
+  one step either side. `TestVariantBreakpoint` now derives it from the geometry
+  (`--track-full` less two gutters equals the wide viewBox) so it cannot be
+  re-derived from the wrong sample.

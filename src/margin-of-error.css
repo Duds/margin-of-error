@@ -345,8 +345,21 @@ figure .chart-narrow {
    legible; undersized is not.
 
    So the switch is where the wide variant stops being legible, not where the
-   grid changes. Measured: 10.10px at 320px, 22.0px at 640px, 16.0px at 1280px. */
-@media (max-width: 1099px) {
+   grid changes.
+
+   The track reaches its full 1072px only at a viewport of 1135px, because the
+   layout is capped at --track-full and carries inline padding. Sweeping the
+   width one pixel at a time: a 1134px viewport leaves the track at 1071px, so
+   the scale is 0.9991 and the 16px labels render at 15.99px — under the floor.
+   At 1135px the scale is exactly 1.0 and they land on 16.00px.
+
+   The breakpoint was previously 1100px, which left every viewport from 1100 to
+   1134px showing the wide variant at 15.48px to 15.99px. The earlier rule was
+   derived from measurements taken at 320, 640 and 1280px and never at the
+   breakpoint itself, so the gap was invisible. Measured now: 10.10px at 320px,
+   22.0px at 640px, 15.48px at 1100px, 15.99px at 1134px, 16.00px at 1135px,
+   16.00px at 1280px. */
+@media (max-width: 1134px) {
   figure .chart-narrow {
     display: block;
   }

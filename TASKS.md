@@ -1348,3 +1348,45 @@ Append-only. Newest last.
   the committed file itself has no implausible window.
 
   Suite 165 -> 176. `tools/build.py --check` exits 0.
+
+- 2026-10-18 — **The breakpoint fix from task 0008 was wrong by 35 pixels, and
+  the test suite could not see it.** Re-measuring in a browser after the gate
+  went green, this time at widths chosen around the breakpoint rather than at
+  the three widths originally used, found that the wide variant renders its
+  16px labels at **15.48px at a 1100px viewport** and 15.99px at 1134px. Every
+  viewport from 1100 to 1134px was showing the wide chart below the DESIGN.md
+  floor. Raised the media query to 1134px, so narrow serves up to and including
+  1134 and wide from 1135.
+
+  **The rule was derived from measurements that did not include the width the
+  rule governs.** Task 0008 recorded "10.10px at 320px, 22.0px at 640px, 16.0px
+  at 1280px" and set the switch at 1100px, a width never measured. The 1280px
+  reading was taken as the point where the wide variant meets the floor, when it
+  is only where it is comfortably above it. The actual crossing is 1135px.
+
+  **Why it survived: nothing asserted the relationship.** There was no test
+  connecting the breakpoint to the geometry, so the number lived in a comment as
+  a conclusion rather than in code as a consequence. Added
+  `TestVariantBreakpoint`, which asserts the design identity directly —
+  `--track-full` less two gutters equals the wide viewBox (1120 − 2×24 = 1072),
+  which is why scale reaches exactly 1.0 — and then asserts the breakpoint is
+  that track plus the browser's scrollbar allowance, minus one. Falsified all
+  three tests by hand: reverting to 1099px fails with "the range 1099-1134px
+  renders labels below the 16px floor"; changing `--track-full` to 1121px fails
+  the identity; editing the floor in DESIGN.md fails the provenance test.
+
+  **A second finding, not a defect:** at 320px the smallest label renders at
+  10.1px, still under 16px, from the narrow variant. This is the recorded trade
+  in task 0008 — a 420-unit viewBox in a 265px column cannot reach 16px on every
+  label, and the narrow copy is the legible option against the alternative of
+  showing a 4px one. Left as decided, and now measured rather than assumed: the
+  browser run reports the minimum at every width, so the trade is visible at a
+  glance instead of buried in a comment.
+
+  Verified: 176 -> **179 tests, OK**. `tools/build.py --check` exits 0. Browser
+  sweep at 320/480/640/900/1100/1134/1135/1280/1600px passes every invariant,
+  with the minimum rendered label at 16.00px wherever the wide variant is shown.
+  All six screenshots re-captured afterwards and are **byte-identical** to the
+  set taken before the change — which is the expected result, since 320, 640 and
+  1280 all sit on the same side of the new breakpoint as they did of the old, and
+  it also confirms the capture harness is deterministic.

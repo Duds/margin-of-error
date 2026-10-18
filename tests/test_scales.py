@@ -2301,3 +2301,82 @@ class TestFieldWindowParsing(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestVariantBreakpoint(unittest.TestCase):
+    """Where the wide chart stops being legible, and the media query that knows it.
+
+    Written because the breakpoint was set from measurements taken at 320, 640
+    and 1280px and never at the breakpoint itself. The wide variant reaches its
+    1:1 scale only at a viewport of 1135px, so a query switching at 1100px left
+    every viewport from 1100 to 1134px showing 16px labels at 15.48px — under
+    the DESIGN.md floor, and invisible to any test that measured at the old
+    three widths.
+    """
+
+    # Chrome reserves this much of the viewport for the scrollbar on macOS. It
+    # is not a CSS value; it was measured (viewport 1135px -> clientWidth
+    # 1120px). A browser that overlays scrollbars would need it re-measured.
+    SCROLLBAR_ALLOWANCE = 15
+
+    ROOT = Path(__file__).resolve().parent.parent
+
+    def setUp(self):
+        self.css = (self.ROOT / "src" / "margin-of-error.css").read_text(encoding="utf-8")
+        self.html = (self.ROOT / "index.html").read_text(encoding="utf-8")
+
+    def token(self, name: str) -> int:
+        m = re.search(rf"{re.escape(name)}:\s*(\d+(?:\.\d+)?)px", self.css)
+        self.assertIsNotNone(m, f"{name} is not defined in the stylesheet")
+        return int(m.group(1))
+
+    def test_track_holds_the_wide_viewbox_exactly(self):
+        """The design identity: 16px in the SVG is 16px on screen at the cap.
+
+        --track-full minus the layout's inline padding must equal the wide
+        viewBox width. If either changes without the other, the wide variant
+        renders at a scale that is not 1.0 and the label floor moves.
+        """
+        track = self.token("--track-full")
+        # padding-inline at the 12-column breakpoint and above.
+        m = re.search(
+            r"@media \(min-width: 640px\) \{\s*\.layout \{[^}]*padding-inline:\s*"
+            r"var\((--[\w-]+)\)",
+            self.css,
+        )
+        self.assertIsNotNone(m, "the layout's padding-inline is not a token")
+        gutter = self.token(m.group(1))
+        wide = max(int(w) for w in re.findall(r'viewBox="0 0 (\d+) \d+"', self.html))
+        self.assertEqual(
+            track - 2 * gutter,
+            wide,
+            f"--track-full ({track}) less two {gutter}px gutters is {track - 2 * gutter}, "
+            f"but the widest viewBox is {wide}; the wide chart cannot reach scale 1.0",
+        )
+
+    def test_breakpoint_is_where_the_wide_variant_reaches_scale_one(self):
+        """The media query must switch at exactly viewport = track + scrollbar."""
+        track = self.token("--track-full")
+        expected = track + self.SCROLLBAR_ALLOWANCE - 1
+        m = re.search(
+            r"@media \(max-width: (\d+)px\) \{\s*figure \.chart-narrow \{\s*display: block",
+            self.css,
+        )
+        self.assertIsNotNone(
+            m, "no media query switches the chart to the narrow variant"
+        )
+        self.assertEqual(
+            int(m.group(1)),
+            expected,
+            f"the narrow variant is shown up to {m.group(1)}px, but the wide variant "
+            f"is legible only from {track + self.SCROLLBAR_ALLOWANCE}px; the range "
+            f"{m.group(1)}-{track + self.SCROLLBAR_ALLOWANCE - 1}px renders labels "
+            "below the 16px floor",
+        )
+
+    def test_floor_is_stated_in_design(self):
+        """The number this test protects must come from the spec, not from here."""
+        design = (self.ROOT / "DESIGN.md").read_text(encoding="utf-8")
+        self.assertRegex(
+            design, r"Never smaller than 16px", "DESIGN.md no longer states the label floor"
+        )
