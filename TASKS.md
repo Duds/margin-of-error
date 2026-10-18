@@ -116,21 +116,48 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   > every chart without regenerating. The accepted cost is that `index.html`
   > becomes a generated artefact, mitigated by the template/output separation
   > now specified in the 0006 entry under NOW.
-- **0003 — Source the AEC data** — build the historical vote series.
-  > Blocked on nothing. AEC publishes results by election, house of reps and
-  > senate files per cycle. Historical series must match on AEC party
-  > abbreviation per election, not the modern name, or rows drop silently.
-  > **Progress 2026-10-03:** results.aec.gov.au is the live archive. The
-  > general-election index is `results.aec.gov.au/<eventId>/Website/`, one
-  > event id per cycle. Seat count verified (see BLOCKED). The historical vote
-  > series across cycles is the remaining work.
-  > Next: register every intended source in `docs/data-sources.md` before use.
+- **0003 — Source the AEC data** — **(COMPLETE 2026-10-18.)**
+  > `tools/ingest_aec_seats.py` reads all nine general elections, 2001 to 2025,
+  > from AEC primary sources; both axes (national primary and seats won) come
+  > from `HouseFirstPrefsByPartyDownload`, and the chamber size from the party
+  > representation download. Roy Morgan agrees with the AEC to within 0.04 points
+  > at every one of the nine.
+  > **Closed 2026-10-18 by moving Chart 01's result axis onto `data/aec_election_results.csv`.**
+  > `stats.load_results()` now reads the AEC series and carries each row's
+  > registry `source_id` through `Gap.result_source_id`, so the chart cites the
+  > elections it actually drew rather than a typed list. `roymorgan-pvi` stays
+  > `cross_check_only: yes` — correctly, since it is a cross-check for a *result*
+  > and a source of record for *polling* — and the chart clears the gate by
+  > citing a confirmed AEC id beside it. That is the rule working as designed,
+  > not the marker being removed.
+  > **The spec's claim that no chart code would change was wrong**, and the
+  > correction is worth keeping: `charts/chart_01.py` read
+  > `primary_vote_oned_pct` and `requires_aec_confirmation`, neither of which the
+  > AEC file has, so pointing it at the AEC data raised `KeyError`. Two column
+  > names that look interchangeable are two different sources, which is why
+  > `load_results()` now refuses a file without `primary_vote_pct` by name.
+  > Also found on the way: the source-file provenance check tested
+  > `sid not in registry` as a raw substring while the artefact check used the
+  > parsed entries, so the two disagreed about family-expanded ids —
+  > `aec-hor-2019-fp-by-party` was registered and refused at the same time. Both
+  > now resolve through `_registry_entries()`.
+  > **`tools/build.py --check` exits 0 for the first time.** The gate-red test
+  > class was inverted rather than deleted, and the gate is still proven to fire
+  > by citing only the cross-checked series.
+  > AEC publishes results by election, one event id per cycle. Historical series
+  > must match on AEC party abbreviation per election, not the modern name, or
+  > rows drop silently: HAN in 2001 and 2004, ON from 2007.
+  > **1996 cannot be sourced.** The AEC archive begins at 2001, so the spec's
+  > "1996 to 2025, ten general elections" is unsourceable as written. The series
+  > is nine.
 - **0004 — Establish the polling dataset** — fieldwork dates, house, n, margin.
-  > **INGEST BUILT 2026-10-04. The structural blocker stands.**
+  > **INGEST BUILT 2026-10-04, REPRODUCED AND CORRECTED 2026-10-18. The
+  > structural blocker stands: no margin, no n, no publication date.**
   > `tools/ingest_roymorgan.py` reads the Roy Morgan PVI page and writes
-  > `data/polls_roymorgan.csv` (138 waves) and
-  > `data/roymorgan_election_results.csv` (10 elections). Both are reproducible
-  > from a saved page. **No sample size, no margin of error and no publication
+  > `data/polls_roymorgan.csv` (138 waves), `data/polls_roymorgan_oned.csv`
+  > (48 discrete waves, the file every chart figure is computed from) and
+  > `data/roymorgan_election_results.csv` (10 elections). All three reproduce
+  > byte-identically from a fresh fetch of the live page, verified 2026-10-18. **No sample size, no margin of error and no publication
   > date exist to ingest** — re-verified on the live page by string search for
   > `sample size`, `margin of error`, `margin of sampling error`, `interviewed`,
   > `confidence interval`, `plus or minus` and `+/-`: zero matches. Those fields
@@ -173,11 +200,34 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   > size, no publication date.** So the series cannot carry a band. It CAN carry
   > polling-against-result over 2018-2022 with an honest "no published margin"
   > marker, which is what non-negotiable 5 as amended now requires.
-  > **Next: extend the ingest to read that table, verify the 2017 gap is real
-  > and not a parsing artefact, and confirm the 2018-2022 figures against the
-  > release text for a sample of waves before any of it is plotted.**
-  > Next: register the dataset in `docs/data-sources.md` and decide the chart
-  > form before building anything on top of it.
+  > **The first two items of that `Next:` are DONE; the third is not achievable
+  > and the limit is now recorded rather than left as a task.**
+  > - *Extend the ingest to read that table* — done 2026-10-04:
+  >   `ingest_discrete_oned()` writes `data/polls_roymorgan_oned.csv`, 48 waves.
+  > - *Verify the 2017 gap is real* — done 2026-10-04, and re-verified
+  >   2026-10-18 against a fresh fetch: the string "2017" does not appear in the
+  >   table, and the ingest reproduces byte-identically from the live page.
+  > - *Confirm the figures against the release text* — **not possible at wave
+  >   level.** The page links exactly one release (April 2025), whose narrative
+  >   confirms only the 7.5% figure inside the monthly table's 18.5% aggregate —
+  >   a value the discrete file correctly does not carry. Roy Morgan published
+  >   **monthly** while the discrete table is **fortnightly**, so no archived
+  >   release matches a 2018-2022 wave's survey window. Full record in
+  >   `docs/data-sources.md` under the 2026-10-18 retrieval entry.
+  >   What replaced it: the AEC's own record agrees with Roy Morgan's
+  >   election-time figures to within 0.04 points at all nine elections, which
+  >   tests the publisher against a primary source rather than against its prose.
+  > - *Register the dataset and decide the chart form* — done 2026-10-05/06.
+  > **A data defect found while doing this.** `parse_field_window()` applied the
+  > label's leading month to every day number, corrupting the fieldwork window of
+  > nine cross-month waves — 'April 25 - May 1, 2022' was written as 2022-04-01 to
+  > 2022-04-25. `docs/standards.md` requires the fieldwork window in a polling
+  > citation, so this is a wrong citation, not a cosmetic one. **No figure on the
+  > page moved**, because the windows are never rendered and the figures are
+  > grouped by year, which is why it survived: the discrete series, the file every
+  > chart reads, was never passed to `validate()`. Fixed, both files now validated
+  > with a per-series span cap (discrete 2-14 days, monthly 1-27), 11 regression
+  > tests added. Suite 165 -> 176.
 - **0005 — Right of reply** — send the draft thesis and named claims.
   > Blocking publication, not blocking development. Send before the copy is
   > final, so a substantive response can shape the framing.
@@ -241,6 +291,62 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   > assertion and the zero-width band assertion (BACKLOG: citation resolver).
   > **0007 is now blocked on data only:** tasks 0003 and 0004 must supply the
   > polling series and the AEC results.
+  > **STATUS 2026-10-18: BUILT, AND THE GATE IS CLEAR.**
+  > Both charts are built on branch `charts-01-polling-vs-result`. The captions
+  > state computed figures, not typed ones, and the build assertions refuse an
+  > unsourced or mismatched figure — each one proven to fire by mutating a
+  > single input in a scratch copy.
+  > **Correction 2026-10-06: the paragraph below claiming four defects were
+  > fixed and verified was true of the sources and false of the page.** The
+  > committed `index.html` still carried three of them, because the gate refused
+  > to write while red, so the artefact could not be regenerated at all. Fixed
+  > by `--draft`, and asserted by `test_committed_artefact_matches_a_fresh_build`.
+  > **`tools/build.py --check` exits 0 since 2026-10-18.** Task 0003 closed by
+  > moving Chart 01's result axis onto the AEC series, so the chart now cites a
+  > source of record beside the cross-checked poll series and the gate passes on
+  > its own terms. `roymorgan-pvi` is still `cross_check_only: yes`, and a test
+  > asserts both halves: that the real check is green, and that the gate still
+  > refuses a chart citing only the cross-check. Publication still needs 0005,
+  > the right of reply, which is an editorial action and not a build one.
+  > **The figures moved when the axis did.** Against the AEC's record polling ran
+  > 0.62 points high in 2019 and 1.25 points low in 2022, where against Roy
+  > Morgan's cross-check of the count it read 0.60 and 1.29. The difference is
+  > the cross-check's rounding and never exceeds 0.04 points.
+  > **Chart 02 (seat efficiency) was never behind that gate.** Its figures come
+  > from the AEC's own per-election files. It is still awaiting Dale's
+  > keep-or-cut decision.
+  >
+  > **Task 0008 VERIFIED 2026-10-05.** Measured in a browser at 320, 640 and
+  > 1280px. Four defects found, all by measuring rather than reading, and none
+  > of them visible in the source:
+  > 1. **At 640px the wide variant rendered 8.61px labels** — the worst of any
+  >    width, and under the DESIGN.md floor of 16px. The breakpoint showed the
+  >    wide copy in a 577px track when it is drawn for 1072. Raised to 1100px,
+  >    so narrow serves 320 and 640 (10.10px and 21.98px) and wide only at
+  >    1280 (16.0px, exactly the floor).
+  > 2. **`--band-hatch` was never declared.** DESIGN.md specifies it as
+  >    `url(#hatch-mo)` and nine Chart 02 polygons used it, but no rule defined
+  >    it, so it resolved to an empty value and the shaded region between the
+  >    two series painted nothing. Not an error: the SVG renders, the attribute
+  >    is present, and an absent fill is simply no paint.
+  > 3. **The narrow variant referenced the wide chart's pattern id.** Its own
+  >    pattern is `#hatch-mo-narrow`, so `#hatch-mo` resolved against an id not
+  >    in its SVG — again invisible, and at the width most readers see.
+  > 4. **`aria-labelledby` was only rewritten for its first token.** With
+  >    `aria-labelledby="chart-01-title chart-01-desc"`, the title was suffixed
+  >    and the desc was not, so each narrow chart pointed at the **wide** chart's
+  >    description while its own went unreferenced. Every id resolves, because
+  >    the wide desc genuinely exists; only a screen reader announces it.
+  >
+  > Reduced motion honoured: zero animations and zero transitions under
+  > `prefers-reduced-motion: reduce`. No JS dependency: `main` is fully opaque
+  > with 3,134 characters and nothing is left hidden. Both charts keep two
+  > variants in the accessibility tree at every width.
+  >
+  > Confirmed the by-election reads as an annotation: its text sits at y=81-122,
+  > entirely above the series range of y=223-440, and the chart carries exactly
+  > 18 markers for 9 elections — no tenth point.
+  > Depends on: 0001, 0003, 0004.
 - **0008 — Responsive chart contract** — MOSTLY RESOLVED by 0006, remainder
   is chart-specific.
   > **Resolved and now house rules**, each measured in a browser:
@@ -254,12 +360,15 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   >   generator emits `chart-NN.svg` and `chart-NN-narrow.svg`. Confirmed by
   >   Dale on 2026-10-04 in preference to horizontal scrolling or relying on the
   >   data table.
-  > - **Both variants ship in the DOM as siblings**, CSS-switched at 640px, so
-  >   a screen reader always finds a chart. Not `<picture>`: verified that it
-  >   does not media-switch two inline `<svg>` elements. Narrow IDs are
-  >   suffixed and its `url(#hatch-mo)` rewritten, or both charts would claim
-  >   the same `id` and the narrow `aria-labelledby` would resolve to the wide
-  >   chart's title.
+  > - **Both variants ship in the DOM as siblings**, CSS-switched at 1100px
+  >   (raised from 640px on 2026-10-05 — see the label-floor finding under
+  >   0007), so a screen reader always finds a chart. Not `<picture>`: verified
+  >   that it does not media-switch two inline `<svg>` elements. Narrow ids are
+  >   suffixed and its `url(#...)` references rewritten, or both charts would
+  >   claim the same `id` and the narrow `aria-labelledby` would resolve to the
+  >   wide chart's title. **Only the `id` attribute is suffixed, never
+  >   `data-source-id`**, which is provenance and not an element id; suffixing it
+  >   produced an unresolvable citation and froze the artefact.
   > - **Charts are siblings of `.col-prose`, never children.** A nested figure
   >   is trapped in columns 2 to 8 and can never reach the breakout track.
   > - **`<figure>` needs `width: 100%`**, or it is sized by its SVG and
@@ -340,6 +449,38 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
 
 ## BACKLOG
 
+- ~~**Chart 01 panel-2 title collides with the 2022 result marker (wide only).**~~
+  **FIXED 2026-10-18** — see the Events entry of that date for the derivation
+  and the tests. Kept here, struck through, because the *diagnosis* below is the
+  reusable part: it is a worked example of a guard that points at the wrong
+  reference, which is this repo's most common defect class.
+  > Found by eye on the recaptured 1280px screenshot, after the breakpoint work.
+  > `verify.mjs` reported `overlap=0` because it only checks text-against-text;
+  > this is text-against-line, which no check covered. Measured in the browser
+  > with `getBBox`: panel 1's year labels occupy y 166.2-188.2; panel 2's title
+  > occupied y 209.2-232.2 and ran from x=104 to x=795.2; the 2022 result cap bar
+  > spanned x 796-822 at y=223.7, clearing the title's last glyph by **0.8px**.
+  > Sub-pixel is not the same as clear: at 1:1 the two read as one mark.
+  > **The cause was a guard that could not fire, not a bad constant.** With
+  > `plot.top=56`, `box_h=274`, `GAP_PANEL_BOTTOM=0.34`, `SPAN_PANEL_TOP=0.56`:
+  > `gap_bottom` is 149.16 and `span_top` is 209.44. `span_title_y` took
+  > `max(span_top - 14, gap_bottom + 78)` = max(195.44, **227.16**) = 227.16, so
+  > the title was placed by panel 1's clearance, not by panel 2's top. The branch
+  > that would lower `span_top` tested `span_title_y < gap_bottom + 64`, i.e.
+  > `227.16 < 213.16` — **false precisely when the title had been pushed furthest
+  > down**, the only case needing the room. The guard's *direction* was the bug;
+  > no value of any constant fixes a test that cannot fire.
+  > A second latent flaw surfaced while extracting it: the branch used
+  > `span_title_y + 14` for a title that can wrap to two lines, so a wrapped
+  > title would have been measured from its first baseline, not its last. The
+  > fix measures the block bottom explicitly.
+  > Resolved as option (a) from the three considered: the plot now always starts
+  > at or below the bottom of its own title. Narrow is byte-identical, which is
+  > the point — the narrow case was already correct and is handled by the other
+  > branch.
+
+
+
 - **Corrections policy page** — `docs/corrections.md` exists as an internal
   register; it needs a public-facing version and a route for readers to report
   an error.
@@ -398,24 +539,47 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   The chart checks could not see it, so `index.html` was shipping a visible
   "PLACEHOLDER SOURCE NOTE" in the figure caption while passing every other
   rule. Provenance is declared on the `<svg>` root, so it stays greppable
-  without a manifest to drift out of sync. 9 regression tests cover these;
-  suite is 30.
-- **Mobile layout verification** — verify at 320px, 680px, 1100px against the
-  grid spec in `DESIGN.md`. Partially done by 0006 (320px and 1280px
-  measured, reduced-motion checked); 680px and 1100px are unverified, and
-  680px is the breakpoint the 640px chart switch sits just inside.
+  without a manifest to drift out of sync. 9 regression tests cover these; the
+  suite was 30 then and is 161 at 2026-10-06.
+- **Mobile layout verification** — **DONE 2026-10-05/06.** Measured at 320, 480,
+  640, 900, 1100, 1280 and 1600px: zero label overlaps, nothing outside the
+  viewBox, all nine bands resolving in every variant, and no horizontal overflow
+  at any width. This is what raised the chart breakpoint from 640px to 1100px —
+  the wide variant rendered 8.61px labels at 640px, under the DESIGN.md floor of
+  16px. The `680px` in the original note was a guess at the grid breakpoint; the
+  chart switch is what actually mattered and it is now measured. The draft banner
+  was separately checked at 320 and 1280 (no overflow, text constrained to the
+  66ch measure).
 - **Accessibility audit** — axe or equivalent, plus manual keyboard traversal.
   The build enforces the floor mechanically (`lang="en-AU"`, one `h1`, one
   `main`, `role="img"`/`<title>`/`<desc>` on every chart, no unfilled
   placeholder, no raw hex), but no third-party audit and no keyboard pass has
   been run.
-- **CI** — **DONE 2026-10-04.** `.github/workflows/ci.yml` runs on push and
-  pull request: `build.py --check`, the 30 geometry and guard-rail tests, and a
-  drift check confirming `index.html` matches its sources. No `pip install`, so
-  the guard on the page's accuracy has no supply chain to go stale. Python
+- **CI** — **WRITTEN, NEVER RAN, AND TWO STEPS COULD NOT FIRE.**
+  `.github/workflows/ci.yml` runs on push to and pull request against `main`:
+  the geometry and guard-rail tests, then `build.py --check`. No `pip install`,
+  so the guard on the page's accuracy has no supply chain to go stale. Python
   pinned to 3.13 (the generators use PEP 604 unions, so 3.10 is the floor).
-  Verified by simulating each step locally, and the drift check was verified to
-  fail on both a hand-edited artefact and a stale template.
+  **Correction 2026-10-06.** The entry previously read "DONE" and claimed the
+  drift check "was verified to fail on both a hand-edited artefact and a stale
+  template." Neither claim survived checking:
+  1. **CI has never executed once.** The workflow is not on `origin/main`, and
+     the branch carrying it has never been pushed — 18 commits on `main` and 10
+     on `charts-01-polling-vs-result` are unpushed. A workflow that has never
+     run cannot have verified anything.
+  2. **The drift step was unreachable.** Steps run sequentially under `set -e`,
+     and `--check` fails by design while task 0003 is open. With `--check`
+     first, every later step was skipped on every run that could ever have
+     happened. The 144 (now 161) tests were in the same position.
+  3. **`--check` never checked drift.** It validated the freshly built string and
+     compared it to nothing. The drift comparison existed only in the YAML.
+  **Fixed 2026-10-06.** Drift is now measured inside `validate()` via
+  `drift_problems()`, so no step ordering can hide it, and the tests run before
+  `--check` so a known-red gate does not cost the test signal. Both were proven
+  to fire by mutating a hand-edited artefact in a scratch copy.
+  **Still to do:** push the branch and open the PR, which is the only way CI runs
+  for the first time. Until then this entry describes a pipeline that has never
+  executed.
 - **Performance budget** — target LCP under 2.0s on a 4G connection. Fonts
   self-hosted, subset to the Latin subset used. **Budget raised to 400KB
   critical path, 2026-10-03.**
@@ -1006,3 +1170,331 @@ Append-only. Newest last.
   and **Review Focus** (five inputs the spec implies but no test exercised, each
   pinned to the task owning the code). Those five are not hypothetical — four of
   them are edge shapes found in the live Roy Morgan source during this rewrite.
+
+- 2026-10-05 — **Both charts built; the finding is that polling was wrong in
+  both directions.** Computed at build time from
+  `data/polls_roymorgan_oned.csv`, never typed:
+  1. **Polling ran 0.60 points HIGH in 2019.** Five waves averaged 3.70 per
+     cent; the party recorded 3.1.
+  2. **Polling ran 1.29 points LOW in 2022.** Twelve waves averaged 3.71 per
+     cent; the party recorded 5.0.
+
+  Neither figure is smoothed, averaged across, or framed as a direction of
+  error. Two elections, opposite signs, small magnitudes. The page's claim is
+  that polling missed this party in both directions across two cycles, which
+  is an open test of the polling, not a verdict on it.
+
+  Two corrections to figures stated earlier in this log and in the spec, both
+  caught by recomputing rather than trusting the earlier number:
+  - The usable wave count is **48, not 49.** One row of the 132 on the source
+    page is the 2019 election *result*, sitting in the same column as the polls.
+  - The 2019 window is **5 waves, not 12.** Only five waves precede that
+    election; 2022 has twelve. So the two means are over different numbers of
+    observations, which is why every figure is labelled with the count it used.
+
+- 2026-10-05 — **The seat series came from the AEC, not from a cross-check,
+  and it changed two things the spec had wrong.**
+  1. **The House did not always have 151 seats.** It returned 150 from 2001 to
+     2016 and 151 from 2019, verified by summing every party's national total in
+     each AEC party representation download. The spec said to divide by 151
+     with "the denominator is not a parameter"; that is wrong for six of the
+     nine elections, so it is a parameter now, read from each source.
+  2. **1996 has no AEC record at all.** The archive begins at 2001, so the
+     "1996 to 2025, ten general elections" span in the approved spec is
+     unsourceable as written. 2001 is sourced from the AEC's official
+     statistics ZIP instead, because the live tally room for that election
+     carries a standing disclaimer that its results "are not final".
+
+  All nine general elections now read from AEC primary sources, 0 seats at each.
+  The party's only seat was the Farrer by-election in 2026, which is annotated
+  on the chart and never plotted, because a by-election is one division on its
+  own electorate with no comparable denominator.
+
+- 2026-10-05 — **The publication gate is installed and deliberately red.**
+  `tools/build.py --check` exits 1, refusing `chart-01.svg` and its narrow
+  variant because their only source is marked `cross_check_only: yes`. This is
+  the gate working and it clears when 0003 confirms the results. A test asserts
+  the gate is still red, so it cannot be quietly loosened.
+
+  Nine assertions were proven to fire by mutating one input each in a scratch
+  copy, which is how three of them were caught **passing on the exact defect
+  each was written to catch**: one compared a caption figure against a row count
+  derived from the same file, one tagged every row with the value it was about
+  to be checked against, and one had nothing in the repository it could fire on.
+  A fourth accepted the correct chamber size on the wrong election, because a
+  membership test cannot tell the difference between 151 being right and 151
+  being right-for-2019.
+
+- 2026-10-06 — **The previous session reported four defects as fixed and
+  verified. Three were still on the page.** Found by asking a status question
+  rather than by trusting the record: `index.html` as committed still carried the
+  wrong `aria-labelledby` on both narrow charts and no `class="band"` on any of
+  the eighteen shaded polygons. The sources were right and the artefact was
+  wrong, because **the gate refuses to write while it is red, so while the gate
+  was red the page could not be regenerated at all.** A gate that blocks
+  publication had also frozen the thing under review, and nothing reported it.
+  The screenshots from that session were taken from a live build, so they showed
+  the fixed page; the committed page was not that page.
+
+  Four defects found this time, all of them the same shape — a guard pointed at
+  the wrong object, passing on the thing it exists to catch:
+
+  1. **`--check` never checked drift.** `main()` validated the freshly built
+     string and compared it to nothing. The drift comparison lived only in the
+     CI workflow, in a step ordered after a step that fails by design, so it
+     could never run. The 161 tests were in the same position behind it.
+  2. **CI has never executed once.** `.github/workflows/ci.yml` is not on
+     `origin/main` and the branch was never pushed. The backlog entry claimed
+     the drift check "was verified to fail on both a hand-edited artefact and a
+     stale template." A workflow that has never run verified nothing.
+  3. **Task 0003 could not clear the gate as specified.** The spec promises the
+     fix is a data edit needing "no chart code changes". False on both halves:
+     `charts/chart_01.py` reads `primary_vote_oned_pct` and
+     `requires_aec_confirmation`, and `data/aec_election_results.csv` has
+     `primary_vote_pct` and **no confirmation column**, so pointing it at AEC
+     data raises KeyError. And the registry held 2004–2022 only as an
+     `aec-hor-<year>-fp-by-party` *family*, which the resolver did not expand —
+     the `source_id:` line carried a trailing parenthetical, so the parser's
+     `^source_id:\s*(\S+)\s*$` never matched it and the family registered
+     nothing. **Seven of nine elections were unciteable.** Chart 02 passed only
+     because it happens to cite 2001 and 2025, which were also written up
+     individually.
+  4. **`data-source-id` was being suffixed as if it were an element id.** The
+     narrow-variant pass collects ids with `id="([^"]+)"`, which also matches
+     the tail of `data-source-id="roymorgan-pvi"`. The built page therefore
+     cited `roymorgan-pvi-narrow`, an id in no registry — and the unknown-id
+     gate refused to write, which is the mechanism in defect 1.
+
+  Fixed: families expand against a new `years:` field; the id scan now uses
+  `(?<![-\w])id=` so provenance keys are left alone; drift is measured inside
+  `validate()`; tests run before `--check` in CI; and `--draft` writes a marked
+  artefact (noindex plus a banner stating the gate count) so the page stays
+  current with its data while the gate stays red. Publication still requires
+  `--check` to pass, which it cannot do until 0003 lands.
+
+  Two new gates, each proven to fire: `artefact_source_id_problems` (the
+  existing unknown-id check reads the *source* SVGs, so it cannot see a defect
+  the build introduces — which is exactly how defect 4 hid), and
+  `duplicate_id_problems`. The latter found a fifth thing: **all four charts
+  emit a byte-identical `<pattern id="hatch-mo">`, and only the narrow variant
+  is suffixed, so two wide charts in one page both declare it and every
+  `url(#hatch-mo)` resolves to Chart 01's.** Harmless while the patterns match,
+  silently wrong the moment either density is changed — the change would have no
+  effect and nothing would say so. Scoped per chart is the real fix, but it
+  breaks the single `.chart-narrow .band` rule that exists to swap the fill, so
+  it is a design decision and is recorded rather than taken.
+
+  Suite 144 -> 161. `--check` exits 1 naming chart-01 only, with **zero drift
+  problems**, which is the state it should be in.
+
+- 2026-10-18 — **Task 0003 closed. `tools/build.py --check` exits 0 for the
+  first time, and the page is no longer a draft.** Chart 01's result axis moved
+  from Roy Morgan's cross-check of the count onto the AEC's ingested series.
+  `stats.load_results()` reads `data/aec_election_results.csv`, and each row's
+  registry `source_id` travels through `Gap.result_source_id` so the chart cites
+  exactly the elections it drew. A typed citation list would have drifted the
+  moment an election entered or left the window, and the drift is a provenance
+  claim pointing at a figure that is not on the page.
+
+  `roymorgan-pvi` **stays** `cross_check_only: yes`. That is the correct reading
+  of the marker: it says Roy Morgan is not a source of record for a *result*,
+  and it remains a source of record for *polling*. The chart clears the gate by
+  citing a confirmed AEC id beside it, not by having the marker removed. A test
+  asserts both halves — the real check is green, and a chart citing only the
+  cross-check is still refused — because a gate that has only ever been seen
+  green is indistinguishable from a gate that was quietly loosened.
+
+  **Figures the reader now sees, against the AEC's record:** polling ran +0.62
+  points high in 2019 and −1.25 points low in 2022, where the cross-check read
+  +0.60 and −1.29. The direction of the finding is untouched; the shift is the
+  cross-check's rounding, and never exceeds 0.04 points at any of the nine
+  elections. The design spec is amended rather than rewritten, because a spec is
+  a dated artefact. **No `corrections.md` entry**: the spec's own rule was "AEC
+  figures differ from Roy Morgan's, AEC wins", this is that case executed, and
+  no figure was ever published — the page has been a draft throughout.
+
+  **A sixth defect, found by the gate disagreeing with itself.** The
+  source-file provenance check tested `sid not in registry` as a raw substring,
+  while the artefact check used the parsed `_registry_entries()`. For a
+  `<year>` family the two disagree: `aec-hor-2019-fp-by-party` is registered, by
+  expansion, but is not a substring of the file. So the same citation was
+  simultaneously accepted and refused, and the symptom looked like an unsourced
+  chart. Both now resolve through one parser. A guard that reimplements the
+  thing it guards is a second source of truth, and this is what two sources of
+  truth cost.
+
+  **Also found: the spec's promise that closing 0003 needed no chart code change
+  was false.** `chart_01.py` read `primary_vote_oned_pct` and
+  `requires_aec_confirmation`; the AEC file has `primary_vote_pct` and no
+  confirmation column, so pointing it at the AEC data raised `KeyError`. Two
+  column names that read alike are two different sources, which is why
+  `load_results()` now refuses a file without `primary_vote_pct` and names the
+  columns it found.
+
+  Suite 161 -> 165. The gate-red test class was inverted, not deleted.
+
+- 2026-10-18 — **Task 0004's release-text cross-check: done as far as the source
+  allows, and the limit is now a recorded fact rather than an open task.** The
+  live Roy Morgan page was re-fetched and the ingest re-run against it. All three
+  output files reproduce **byte-identically** apart from the retrieval date, so
+  the series is reproducible from the source rather than a one-time transcription.
+
+  The page links exactly one release, April 2025, and its narrative — "support
+  for One Nation increased 1.5% to 7.5%" — confirms only the 7.5% sitting inside
+  the monthly table's 18.5% aggregate. **That is not a discrete figure and the
+  ingest correctly refuses to write it as one.** Stating the check loosely would
+  have been the aggregate trap `AGENTS.md` names. Roy Morgan published monthly;
+  the discrete table is fortnightly; so no archived release matches a 2018-2022
+  wave's survey window. Older release IDs 404, and the findings index lists only
+  the current wave. **A wave-level cross-check against this publisher's own
+  release text is not achievable.** What stands in its place is stronger: the
+  AEC's record agrees with Roy Morgan's election figures to within 0.04 points at
+  all nine elections, which tests the publisher against a primary source instead
+  of against its own prose.
+
+  **Doing the check found a data defect that nine months of charts had not.**
+  `parse_field_window()` took the label's leading month name and applied it to
+  every day number, corrupting the fieldwork window of **nine cross-month
+  waves**: 'April 25 - May 1, 2022' was written as 2022-04-01 to 2022-04-25, a
+  25-day window starting three weeks early, and 'July 24/25 & 31/ August 1, 2021'
+  became 2021-07-01 to 2021-07-31. `docs/standards.md` requires a polling
+  citation to carry the fieldwork window, so this is a wrong citation, not a
+  cosmetic one.
+
+  **It survived because no figure on the page depends on it.** The windows are
+  never rendered, and the chart figures are grouped by year, so not one plotted
+  number moved. The deeper cause: **only the monthly file was ever passed to
+  `validate()`.** The discrete One Nation series — the file every chart figure is
+  computed from — had no guard at all, and the monthly labels are single-month,
+  so the one file that was checked could not contain the defect. Fixed by walking
+  each label left to right and binding every day to the month named before it,
+  with a year-boundary case for 'December 30 - January 6'.
+
+  `window_problems()` now checks **both** files, with the span cap passed per
+  series because the cadences genuinely differ: discrete waves span 2 to 14 days,
+  monthly waves 1 to 27. One shared cap would either reject real monthly waves or
+  miss corrupted fortnightly ones — which is the same mistake as assuming one
+  chamber size for nine elections. Verified to fire on all three original
+  corrupted windows, to pass the corrected ones, and to pass a legitimate 27-day
+  monthly wave at its own cap. 11 regression tests added, including one asserting
+  the committed file itself has no implausible window.
+
+  Suite 165 -> 176. `tools/build.py --check` exits 0.
+
+- 2026-10-18 — **The breakpoint fix from task 0008 was wrong by 35 pixels, and
+  the test suite could not see it.** Re-measuring in a browser after the gate
+  went green, this time at widths chosen around the breakpoint rather than at
+  the three widths originally used, found that the wide variant renders its
+  16px labels at **15.48px at a 1100px viewport** and 15.99px at 1134px. Every
+  viewport from 1100 to 1134px was showing the wide chart below the DESIGN.md
+  floor. Raised the media query to 1134px, so narrow serves up to and including
+  1134 and wide from 1135.
+
+  **The rule was derived from measurements that did not include the width the
+  rule governs.** Task 0008 recorded "10.10px at 320px, 22.0px at 640px, 16.0px
+  at 1280px" and set the switch at 1100px, a width never measured. The 1280px
+  reading was taken as the point where the wide variant meets the floor, when it
+  is only where it is comfortably above it. The actual crossing is 1135px.
+
+  **Why it survived: nothing asserted the relationship.** There was no test
+  connecting the breakpoint to the geometry, so the number lived in a comment as
+  a conclusion rather than in code as a consequence. Added
+  `TestVariantBreakpoint`, which asserts the design identity directly —
+  `--track-full` less two gutters equals the wide viewBox (1120 − 2×24 = 1072),
+  which is why scale reaches exactly 1.0 — and then asserts the breakpoint is
+  that track plus the browser's scrollbar allowance, minus one. Falsified all
+  three tests by hand: reverting to 1099px fails with "the range 1099-1134px
+  renders labels below the 16px floor"; changing `--track-full` to 1121px fails
+  the identity; editing the floor in DESIGN.md fails the provenance test.
+
+  **A second finding, not a defect:** at 320px the smallest label renders at
+  10.1px, still under 16px, from the narrow variant. This is the recorded trade
+  in task 0008 — a 420-unit viewBox in a 265px column cannot reach 16px on every
+  label, and the narrow copy is the legible option against the alternative of
+  showing a 4px one. Left as decided, and now measured rather than assumed: the
+  browser run reports the minimum at every width, so the trade is visible at a
+  glance instead of buried in a comment.
+
+  Verified: 176 -> **179 tests, OK**. `tools/build.py --check` exits 0. Browser
+  sweep at 320/480/640/900/1100/1134/1135/1280/1600px passes every invariant,
+  with the minimum rendered label at 16.00px wherever the wide variant is shown.
+  All six screenshots re-captured afterwards and are **byte-identical** to the
+  set taken before the change — which is the expected result, since 320, 640 and
+  1280 all sit on the same side of the new breakpoint as they did of the old, and
+  it also confirms the capture harness is deterministic.
+
+- 2026-10-18 — **The BACKLOG note recording the Chart 01 title collision quoted
+  a code comment instead of measuring, and got the numbers wrong.** The first
+  version said panel 1's year labels sit at "y 196-209", which is what
+  `chart_01.py`'s comment about the two earlier passes asserts. Measured with
+  `getBBox` in the browser they occupy **y 166.2-188.2**. The comment describes
+  a geometry that no longer exists; the code changed and the prose did not.
+
+  The conclusion survived — the title's last glyph clears the 2022 result cap
+  bar by 0.8px, and the guard that should lower `span_top` cannot fire — but the
+  recorded evidence did not, and the whole point of the entry is that someone
+  should be able to fix this without re-measuring. Wrong numbers in a
+  measurement note are worse than no note, because they are trusted.
+
+  Corrected in place, with the derivation now shown as arithmetic
+  (`max(span_top - 14, gap_bottom + 78)` = max(195.44, 227.16) = 227.16, so the
+  branch testing `227.16 < 213.16` is false exactly when the room is needed), and
+  the root cause named: the guard's condition points at `gap_bottom` when it
+  needs to point at `span_top`. Option (a) is now stated as the likely fix.
+
+- 2026-10-18 — **Fixed the Chart 01 title collision, and the fix found a second
+  latent flaw in the same three lines.** The BACKLOG entry below records the
+  diagnosis; this records what changing it turned up.
+
+  **The guard's direction was the bug, not its value.** Panel 2's plot was
+  lowered to make room for its title only when `span_title_y < gap_bottom + 64`.
+  On the wide variant the title sits at 227.16 and that bound is 213.16, so the
+  branch never ran — and it is false *exactly* when clearing panel 1 pushed the
+  title furthest down, which is the only situation that needs the room. Every
+  constant in the expression was reasonable; the comparison tested the wrong
+  neighbour. This is the same class as the provenance gate that used a raw
+  substring where the registry needed parsing, and the drift check ordered behind
+  a step that fails by design.
+
+  **Extracting it to test the invariant surfaced a second bug.** The new branch
+  first read `span_title_y + 14`, which measures a *one-line* title's descent.
+  The title wraps to three lines on narrow, so a wrapped title would be measured
+  from its first baseline rather than its last — the same category of error as
+  the original, in the code written to fix it. Replaced with an explicit
+  `title_block_bottom(baseline, n_lines)`, and the narrow fixture corrected from
+  two lines to the three it actually renders.
+
+  **Resolved as the geometry option, not the editorial one.** Of the three
+  choices recorded in the BACKLOG entry, (a) — make the plot start below its own
+  title — was correct because it fixes the invariant rather than the symptom:
+  shortening the title would still leave it drawn inside the plot, and any longer
+  title reintroduces the clash.
+
+  **Narrow is byte-identical, which was the requirement.** The two branches serve
+  different viewports: narrow needed the clamp that already worked, wide needed
+  the guard that could not fire. Proven by `git diff` on `chart-01-narrow.svg`
+  rather than by argument, and pinned by asserting the exact values the committed
+  narrow SVG renders (baseline 214.6, plot top 280.6), so changing a constant
+  cannot silently move the mobile view.
+
+  **Four tests added, and the two that matter were falsified in memory** by
+  monkeypatching the superseded logic back in: `test_wide_plot_starts_below_its_
+  own_title` fails with "209.44 not greater than or equal to 241.16", and
+  `test_old_guard_could_not_fire_in_the_case_it_needed` fails its second half.
+  Narrow's tests pass either way, correctly, because narrow was never broken.
+  Done in-process because copying the repo to `/tmp` to mutate it needs approval
+  that isn't grantable mid-run — a scratch copy is the habit to avoid anyway,
+  having once reverted uncommitted work with a `git checkout -- .` inside one.
+
+  `tools/verify.mjs` now reports the closest label-to-mark gap per chart as a
+  **diagnostic, not a gate**. An earlier version failed on any gap under 2 units
+  and produced 40+ problems, because a series label pointing at its own data
+  point sits at gap 0 by design. A threshold tuned until today's output passes is
+  today's output encoded, not a property asserted — so it reports the number and
+  the label carrying it, and a human reads it. Chart 01's title gap went 0.0 ->
+  22.1px.
+
+  Suite 179 -> **183 tests, OK**. `tools/build.py --check` exits 0. Browser sweep
+  passes every hard invariant at all nine widths. Exactly one screenshot changed
+  (`chart-01-1280px.png`); the other five are byte-identical, which is the
+  expected result and also confirms the capture is deterministic.

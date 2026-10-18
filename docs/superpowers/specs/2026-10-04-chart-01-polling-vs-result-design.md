@@ -4,6 +4,25 @@
 **Task:** 0007 in `TASKS.md`. Supersedes the Chart 01 placeholder.
 **Related:** `docs/chart-specs.md` Chart 01, `AGENTS.md` non-negotiables 2 and 5.
 
+**Amended 2026-10-18.** The result axis moved from Roy Morgan's cross-check of
+the count onto the AEC's own ingested series, which is what closed task 0003 and
+cleared the publication gate. The figures in this document below 2026-10-18 are
+left as they were written, because a spec is a dated artefact and the gate it
+describes was correct at the time. The changed numbers are:
+
+| Election | This spec (Roy Morgan) | AEC record, now plotted | Result source |
+|---|---|---|---|
+| 2019 | 3.1 | 3.08 | `aec-hor-2019-fp-by-party` |
+| 2022 | 5.0 | 4.96 | `aec-hor-2022-fp-by-party` |
+| Gap 2019 | +0.60 | **+0.62** | — |
+| Gap 2022 | −1.29 | **−1.25** | — |
+
+The direction of the finding is unchanged and the magnitude moves by less than
+the cross-check's own rounding, which is at most 0.04 points at any of the nine
+elections. This is the risk table's stated case — "AEC figures differ from Roy
+Morgan's: AEC wins" — executed. No entry in `docs/corrections.md`, because
+neither figure was ever published: the page has been a draft throughout.
+
 ---
 
 ## What this chart is

@@ -25,33 +25,59 @@ Applies to every chart below.
 
 ---
 
-## Chart 01 — The band, and where there isn't one
+## Chart 01 — Polling against the ballot box
 
-**Revised 2026-10-04** against the 0004 sourcing assessment. The original spec
-assumed every poll point carried a published margin. It does not.
+**Built 2026-10-04. Spec of record:**
+`docs/superpowers/specs/2026-10-04-chart-01-polling-vs-result-design.md`.
+This entry is retained for the reasoning, not as the build spec.
 
-- **Question it answers:** what did polling say, what did the ballot produce,
-  and how wide is the gap?
-- **Data:** `polls` (fielded window, n, margin, all nullable) and `aec` results
-  by cycle.
-- **Form:** line of point estimates against election results on the same axis,
-  where the interval is published the point carries the band and hatch, and
-  where it is not published the point carries the "no published margin"
-  marker instead.
-- **The marker.** A distinct, visible glyph at every poll point with a null
-  margin, in `--color-ink-muted`, plus a count in the caption: "N of M waves
-  publish no margin of error." The marker is not optional and not decorative.
-  It marks the edge of what the comparison can show, in the page's own voice.
-  It is not a claim about pollsters and must not be captioned as one.
-- **Must not:** impute a margin from an assumed sample size, ever. Not as a
-  default, not as a footnote, not as a "typical" value. A fabricated band is a
-  fabricated number in the visual language of honesty.
-- **Must not:** smooth the line, truncate the y-axis, or omit a cycle because it
-  is inconvenient. Dropping an election is the single most dishonest thing this
-  chart could do.
+**Numbering note.** The chart built as `charts/chart_01.py` is *not* the form
+originally sketched here — a single line of point estimates against results. The
+built form is two panels: polling minus result from a zero rule, and the span of
+polling values before each election with the result marked against it. The form
+changed because the band this spec assumed **does not exist**: no wave in the
+series publishes a margin of error, a sample size or a publication date, so
+there is no band to draw and none is imputed.
+
+- **Question it answers:** did polling overstate or understate the party's vote,
+  and by how much?
+- **Data:** `data/polls_roymorgan_oned.csv` (48 waves, 2018 to 2022) for the
+  polling axis and `data/aec_election_results.csv` for the result axis. The
+  result axis moved off Roy Morgan's cross-check onto the AEC's own record when
+  task 0003's series was ingested; that is what clears the publication gate.
+- **Form:** two panels in one figure. Panel 1 is the finding — polling minus
+  result in percentage points, from a zero rule, so the axis is centred on the
+  quantity being measured. Panel 2 is the evidence — where polling sat across
+  the preceding waves, as a span rather than a line, with the result marked.
+- **The finding, computed at build time:** polling ran **0.62 points high in
+  2019** and **1.25 points low in 2022**. Wrong in both directions, which is
+  what makes this an open test rather than a verdict. The figures are the AEC
+  result subtracted from the polling mean; against Roy Morgan's own cross-check
+  of the count they read 0.60 and 1.29, and the difference is the cross-check's
+  rounding, never more than 0.04 points at any election.
+- **The marker.** "N of M waves publish no margin of error, no sample size and
+  no publication date," in the figure, the caption and the `desc`. It is not
+  optional and not decorative. It marks the edge of what the comparison can
+  show, in the page's own voice. **It is not a claim about pollsters and must
+  not be captioned as one.**
+- **Must not:** impute a margin from an assumed sample size, ever. A fabricated
+  band is a fabricated number in the visual language of honesty.
+- **Must not:** smooth the line, truncate the y-axis, or omit an election
+  because it is inconvenient. Dropping an election is the single most
+  dishonest thing this chart could do.
+- **Must not:** draw a line between the waves. They are fortnightly snapshots
+  with no model between them, and a line asserts values nobody measured. A span
+  states what was published and nothing more.
 - **The trap:** if the y-axis starts at 3%, the difference between a 4% poll and
-  a 5.5% result inflates to fill the screen. Start at zero, or annotate the
-  truncation explicitly and visibly.
+  a 5.5% result inflates to fill the screen. Start at zero.
+
+**Gated, and the gate is now clear.** `tools/build.py --check` refused this chart
+while every source it cited was marked `cross_check_only: yes` in the registry.
+The rule is "refuse only when EVERY cited id is cross-check-only", which is the
+correct reading: `roymorgan-pvi` stays marked, because it remains a source of
+record for *polling* and not for a *result*, and the chart now also cites the
+AEC id of each election whose result it draws. Task 0003's series cleared this
+on 2026-10-18.
 
 ## Chart 05 — Withdrawn
 
@@ -74,9 +100,18 @@ evidence, carried in Chart 01's caption and in the page's own voice. See "Where
 there is no band" in `DESIGN.md` and the Gotchas entry "Bands are honesty, not
 decoration" in `AGENTS.md`.
 
-## Chart 02 — Seat margin
+## Chart 02 (spec numbering) — Seat margin
 
-**Provisional purpose.** Where the party's support actually converts to seats.
+> **RENUMBERED 2026-10-05 to avoid a collision.** This entry was "Chart 02".
+> The seat-efficiency chart moved forward from editorial Chart 04 and was built
+> as `charts/chart_02.py`, because build order and spec numbering are different
+> things and the file name follows build order. Two entries now claim 02.
+>
+> **This entry is now editorial Chart 06 — Seat margin, by division. Not built.**
+> Nothing references it under the name 02 except history.
+
+**Provisional purpose.** Where the party's support actually converts to seats,
+at the level an individual seat is won or lost.
 
 - **Question it answers:** at what primary vote does a seat become winnable?
 - **Data:** seat-level results by division across cycles, with boundary mapping.
@@ -84,7 +119,12 @@ decoration" in `AGENTS.md`.
   results with the margin in votes labelled.
 - **Must not:** compare seat margins across a redistribution without saying so.
   A margin measured against different boundaries is not a trend.
+- **Must not:** use the national series as a substitute for this. The built
+  Chart 02 answers a different question at national level; this one is about
+  individual divisions.
 - **Depends on:** the boundary-mapping helper in `TASKS.md` BACKLOG.
+- **Distinct from** the built Chart 02, which is national vote share against
+  national seat share. That one shares no data with this one.
 
 ## Chart 03 — Preference flow
 
@@ -103,28 +143,43 @@ preferences are counted.
 
 ## Chart 04 — Seat share against vote share
 
-> **MOVED FORWARD 2026-10-04.** Now specced in full as **Chart 02** in
-> `docs/superpowers/specs/2026-10-04-chart-01-polling-vs-result-design.md`, at
-> Dale's direction to build it alongside the polling chart. Numbering in this
-> document is retained for continuity; the build order is 01 then 02.
+> **BUILT as `charts/chart_02.py`, 2026-10-04.** Spec of record:
+> `docs/superpowers/specs/2026-10-04-chart-01-polling-vs-result-design.md`,
+> section "Chart 02 — Seat efficiency". Numbering here is retained for
+> continuity; build order is 01 then 02.
 >
-> **Provisional, and awaiting a keep-or-cut decision.** Dale will decide whether
-> it stays after seeing it rendered. It is built behind the same AEC gate as
-> Chart 01 and shares no data or code with it beyond `charts/stats.py`, so
-> cutting it later costs nothing.
+> **AWAITING A KEEP-OR-CUT DECISION.** Dale will decide whether it stays after
+> seeing it rendered. It shares no data and no code with Chart 01 beyond
+> `charts/stats.py`, so cutting it costs nothing and the polling chart is
+> unaffected.
+>
+> **Note on the gate.** This chart is *not* behind the cross-check gate. Its
+> figures come from the AEC's own per-election files, so it passes
+> `tools/build.py --check` today. Chart 01 is the one that stays red pending
+> task 0003. The two can therefore ship independently.
 
 **Provisional purpose.** Vote efficiency: seats won per point of vote.
 
 - **Question it answers:** is the party getting more or less out of its vote than
   it should?
-- **Data:** national vote share and seat share by cycle.
+- **Data:** `data/aec_election_results.csv` — national vote share and seat share
+  by election, 2001 to 2025, both from the AEC.
 - **Form:** two lines on one axis, with the gap shaded. The gap is the story, so
   shade it rather than annotating it.
+- **Built form.** Nine general elections. The vote line climbs from 4.34% to
+  6.40%; the seat line is flat at zero across all nine. Each share is measured
+  against the House as it was then — 150 seats to 2016, 151 from 2019.
 - **Must not:** use seat share from a chamber that is not a single elected body.
   House and Senate are not comparable and must not share an axis.
 - **Must not:** plot the Farrer 2026 by-election on the general-election line.
   Different electorate, different field, different denominator. It is an
-  annotation on the chart, never a point on the series.
+  annotation on the chart, never a point on the series. Its figures live in
+  `data/aec_by_election.csv`, which carries
+  `plottable_on_general_election_series = no` and the build checks that flag.
+- **Must not:** join the 2004 to 2016 block into one continuous line with the
+  years either side. Those five elections sit at 0.17 to 1.29 per cent against
+  4.34 in 2001, which is slate coverage rather than a collapse and recovery. The
+  block is drawn as a marked span.
 
 ---
 

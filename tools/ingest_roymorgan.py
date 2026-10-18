@@ -43,9 +43,11 @@ minus" and "+/-": zero matches. Those fields are written as null and must
 stay null. Imputing a margin from an assumed n is prohibited by AGENTS.md
 non-negotiable 5 and would be fabricated precision.
 
-Validation runs on write: every numeric field is range-checked, every wave
-must carry a field window, and a discrete party figure may never exceed the
-combined column that contains it.
+Validation runs on write, on both files: every numeric field is range-checked,
+every wave must carry a field window whose days and span agree with its own
+label, and a discrete party figure may never exceed the combined column that
+contains it. The window check was added 2026-10-18 after nine waves were found
+to have been written with a month applied to the wrong days.
 """
 
 import argparse
@@ -180,28 +182,76 @@ def resolve_year(label: str, current: int | None) -> int | None:
     return current
 
 
+MONTHS = {
+    "january": 1, "february": 2, "march": 3, "april": 4, "may": 5,
+    "june": 6, "july": 7, "august": 8, "september": 9, "october": 10,
+    "november": 11, "december": 12,
+}
+
+
 def parse_field_window(label: str, year_hint: int | None = None) -> tuple[str, str]:
     """Turn 'May 5-31' or 'March 15/16 & 22/23, 2014' into an ISO date range.
 
     The publisher puts the year on some wave labels and only on the year
     header row for others, so `year_hint` carries the grouping year down.
     Returns (start, end) as ISO dates, or ("", "") when no day is given.
+
+    Each day number belongs to the month named *before* it, not to the first
+    month on the label. The previous version took the leading month and applied
+    it to every day it found, which silently corrupted the eight cross-month
+    waves: 'April 25 - May 1, 2022' came out as 2022-04-01 to 2022-04-25, a
+    24-day window starting three weeks early, and 'July 24/25 & 31/ August 1,
+    2021' became 2021-07-01 to 2021-07-31. The fieldwork window is one of the
+    four fields `docs/standards.md` requires a polling citation to carry, so a
+    wrong one is a wrong citation on the page, and nothing in the chart drawing
+    would have shown it: the windows are not rendered.
     """
-    months = {
-        "january": 1, "february": 2, "march": 3, "april": 4, "may": 5,
-        "june": 6, "july": 7, "august": 8, "september": 9, "october": 10,
-        "november": 11, "december": 12,
-    }
     year_match = re.search(r"(\d{4})", label)
     year = int(year_match.group(1)) if year_match else year_hint
-    month_match = re.match(r"([A-Za-z]+)", label.strip())
-    month = months.get(month_match.group(1).lower(), 1) if month_match else 1
-
-    days = [int(d) for d in re.findall(r"\b(\d{1,2})\b", label)]
-    days = [d for d in days if 1 <= d <= 31]
-    if not days or not year:
+    if not year:
         return "", ""
-    return f"{year:04d}-{month:02d}-{min(days):02d}", f"{year:04d}-{month:02d}-{max(days):02d}"
+
+    # Walk the label left to right, tracking the month most recently named.
+    # A bare day inherits it. This is what makes 'February 28/March 1 & 7/8'
+    # resolve to 18 February through 8 March rather than 1 February through 28.
+    pairs: list[tuple[int, int]] = []
+    month: int | None = None
+    for token in re.finditer(r"([A-Za-z]+)|\b(\d{1,2})\b", label):
+        word, day = token.group(1), token.group(2)
+        if word:
+            candidate = MONTHS.get(word.lower())
+            if candidate:
+                month = candidate
+            continue
+        if month is not None:
+            d = int(day)
+            if 1 <= d <= 31:
+                pairs.append((month, d))
+
+    if not pairs:
+        return "", ""
+
+    # Months in the order they are named, which is the order of the window.
+    # Taking min and max of the month *numbers* would invert
+    # 'December 30 - January 6', because 1 < 12.
+    month_seq: list[int] = []
+    for m, _ in pairs:
+        if m not in month_seq:
+            month_seq.append(m)
+
+    start_month, end_month = month_seq[0], month_seq[-1]
+    # Days within the opening and closing months: earliest first, latest last.
+    start_day = min(d for m, d in pairs if m == start_month)
+    end_day = max(d for m, d in pairs if m == end_month)
+
+    # An earlier-numbered month named second crosses a year boundary:
+    # 'December 30 - January 6, 2021' ends in the year the label states and its
+    # December belongs to the year before.
+    start_year = year - 1 if end_month < start_month else year
+    return (
+        f"{start_year:04d}-{start_month:02d}-{start_day:02d}",
+        f"{year:04d}-{end_month:02d}-{end_day:02d}",
+    )
 
 
 def ingest_monthly(tables: list[list[list[str]]], warnings: list[str]) -> list[dict]:
@@ -378,6 +428,185 @@ def ingest_election_results(
     return out
 
 
+
+ELECTION_ROW = re.compile(r"\bElection\b", re.IGNORECASE)
+
+
+def ingest_discrete_oned(
+    tables: list[list[list[str]]], warnings: list[str]
+) -> list[dict]:
+    """Discrete One Nation polling by wave. Election results are excluded.
+
+    The page carries a second table with its own One Nation column, separate from
+    the long-term monthly one. The monthly table has no such column, so this is
+    the only place on the page a discrete party polling figure exists.
+
+    Results are interleaved with polls in the same first column and must be
+    dropped. Two appear in range, the 2016 and 2019 federal elections, and the
+    2019 one sits *inside* the 2019 year group, so counting rather than matching
+    is how you get a window of 6 where the data holds 5. A result counted as a
+    poll is the same class of error as the 49-versus-48 slip: it survives
+    because nothing recomputes it.
+
+    Coverage on the live source, measured 2026-10-04: 2018 to 2022 complete, 2013
+    to 2016 almost entirely blank, 2017 absent from the table altogether.
+    """
+    candidates = [t for t in tables if "one nation" in [h.strip().lower() for h in t[0]]]
+
+    if not candidates:
+        raise SourceShapeChanged(
+            "no table with a discrete One Nation column found; the page layout "
+            "has probably changed. Roy Morgan's monthly table is not a usable "
+            "substitute: it has no such column."
+        )
+
+    # The live page carries two such tables: the recent election results
+    # (12 rows) and this long-run one (132). Taking the larger is the correct
+    # choice, but picking between them silently is how a series quietly becomes
+    # the wrong series, so an unexpected count is reported rather than absorbed.
+    if len(candidates) > 2:
+        warnings.append(
+            f"{len(candidates)} tables carry a discrete One Nation column, not the "
+            f"2 this script was written against (the recent election results and "
+            f"the long-run polling table). Taking the largest. Re-verify the "
+            f"page structure if the row count looks wrong."
+        )
+
+    table = max(candidates, key=len)
+    header = table[0]
+    idx_oned = select_column(header, "One Nation", "discrete polling table")
+
+    rows: list[dict] = []
+    years_seen: dict[int, int] = {}
+    results_dropped: list[str] = []
+
+    for cells in table[1:]:
+        label = cells[0].strip()
+        if not label:
+            continue
+        if re.fullmatch(r"\d{4}", label):
+            continue  # bare year group header, carries no data
+        if ELECTION_ROW.search(label):
+            results_dropped.append(label)
+            continue
+
+        years = re.findall(r"\b(20\d\d)\b", label)
+        if not years:
+            continue  # a commentary row, not a wave
+        year = int(years[0])
+
+        if idx_oned >= len(cells):
+            continue
+        value = parse_number(cells[idx_oned])
+        if value is None:
+            years_seen.setdefault(year, 0)
+            continue  # no discrete figure for the party on this wave
+
+        window_start, window_end = parse_field_window(label, year)
+        years_seen[year] = years_seen.get(year, 0) + 1
+        rows.append(
+            {
+                "house": "Roy Morgan",
+                "wave_label": label,
+                "year": year,
+                "fielded_start": window_start,
+                "fielded_end": window_end,
+                # Not published by this house. Left null deliberately.
+                "n": "",
+                "margin_of_error": "",
+                "pub_date": "",
+                "pvi_oned": value,
+                "publishes_n": "no",
+                "publishes_margin_of_error": "no",
+                "publishes_pub_date": "no",
+                "source_id": "roymorgan-pvi",
+                "retrieved": date.today().isoformat(),
+            }
+        )
+
+    if not rows:
+        raise SourceShapeChanged(
+            "discrete polling table yielded no usable rows; the page layout has "
+            "probably changed."
+        )
+
+    if results_dropped:
+        warnings.append(
+            f"excluded {len(results_dropped)} election result row(s) from the poll "
+            f"series: {results_dropped}. They share the poll table's first column "
+            f"and are results, not polls."
+        )
+
+    empty = sorted(y for y, n in years_seen.items() if n == 0)
+    if empty:
+        warnings.append(
+            f"{len(empty)} year(s) in the table carry no discrete figure for this "
+            f"party: {', '.join(str(y) for y in empty)}. Recorded as a property "
+            f"of the source, not interpreted."
+        )
+
+    return rows
+
+
+def window_problems(rows: list[dict], max_days: int) -> list[str]:
+    """Refuse a fieldwork window that contradicts its own label.
+
+    `docs/standards.md` requires a polling citation to carry the fieldwork
+    window, so a wrong window is a wrong citation on the page. It is also
+    invisible in the chart: the windows are never rendered, and the figures are
+    grouped by year, so a corrupt window changes nothing you can see.
+
+    This exists because `parse_field_window()` took the leading month name and
+    applied it to every day number on the label, which silently corrupted the
+    nine cross-month waves. 'April 25 - May 1, 2022' became 2022-04-01 to
+    2022-04-25 — a 25-day window starting three weeks early — and nothing
+    failed, because the only file validated was the monthly one.
+
+    `max_days` is passed in rather than assumed, because the two series are
+    genuinely different cadences: the discrete One Nation table is fortnightly,
+    and the monthly table's waves really do span up to 31 days. One shared cap
+    would either reject real monthly waves or miss corrupted fortnightly ones.
+    The day-level test below is the part that does not depend on cadence.
+    """
+    problems: list[str] = []
+    for r in rows:
+        label = r.get("wave_label", "")
+        start, end = r.get("fielded_start", ""), r.get("fielded_end", "")
+        if not start or not end:
+            continue
+        try:
+            d0 = date.fromisoformat(start)
+            d1 = date.fromisoformat(end)
+        except ValueError:
+            problems.append(f"{label}: window {start!r}..{end!r} is not ISO")
+            continue
+
+        span = (d1 - d0).days + 1
+        if span < 1:
+            problems.append(
+                f"{label}: window runs backwards, {start} to {end}"
+            )
+        elif span > max_days:
+            problems.append(
+                f"{label}: fieldwork window spans {span} days ({start} to "
+                f"{end}), more than the {max_days}-day cap for this series. A "
+                f"month has probably been applied to a day it does not belong "
+                f"to."
+            )
+
+        # Every day in the window must be a day named on the label. This is the
+        # check that catches a month misapplied rather than merely a long span.
+        days_on_label = {int(d) for d in re.findall(r"\b(\d{1,2})\b", label)}
+        for d in (d0.day, d1.day):
+            if d not in days_on_label:
+                problems.append(
+                    f"{label}: window edge day {d} is not a day named in the "
+                    f"label. A month has been applied to a day it does not "
+                    f"belong to."
+                )
+    return problems
+
+
 def validate(rows: list[dict], warnings: list[str]) -> list[str]:
     """Fail loudly rather than writing a plausible wrong file."""
     problems: list[str] = []
@@ -450,6 +679,7 @@ def main() -> int:
     try:
         monthly = ingest_monthly(tables, warnings)
         results = ingest_election_results(tables, warnings)
+        oned = ingest_discrete_oned(tables, warnings)
     except (UnmappedColumn, SourceShapeChanged) as exc:
         print(f"error: {exc}", file=sys.stderr)
         print(
@@ -459,7 +689,21 @@ def main() -> int:
         )
         return 1
 
+    # The discrete series is what every chart figure is computed from, so it is
+    # validated too. It used to be that only the monthly file was checked, which
+    # meant the file that ships had no guard at all: the nine corrupted field
+    # windows were written straight through, and the monthly check had nothing to
+    # say about them because those labels are single-month.
     problems = validate(monthly, warnings)
+    # Both files, not just the monthly one. The discrete series is what every
+    # chart figure is computed from and it had no guard at all, which is how the
+    # nine corrupted windows were written straight through.
+    #
+    # Caps are measured from each file rather than assumed: the discrete waves
+    # span 2 to 14 days and the monthly waves 1 to 27, so one shared cap would
+    # either reject real monthly waves or miss corrupted fortnightly ones.
+    problems += window_problems(oned, max_days=16)
+    problems += window_problems(monthly, max_days=31)
     if problems:
         print("error: validation failed", file=sys.stderr)
         for p in problems:
@@ -468,6 +712,7 @@ def main() -> int:
 
     write_csv(OUT_DIR / "polls_roymorgan.csv", monthly)
     write_csv(OUT_DIR / "roymorgan_election_results.csv", results)
+    write_csv(OUT_DIR / "polls_roymorgan_oned.csv", oned)
 
     print()
     for w in warnings:

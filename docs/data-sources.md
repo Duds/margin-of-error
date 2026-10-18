@@ -56,10 +56,38 @@ Never cite, never plot.
 
 ---
 
-## Recording a figure
+## Registry field contract
 
-Every dataset gets a row here with its own retrieval detail. The schema lives in
-`standards.md`.
+Every dataset gets a block here with its own retrieval detail. `tools/build.py`
+parses these blocks, so the format is load-bearing, not house style: an entry
+the parser cannot read registers nothing, and a chart citing it is refused as an
+unknown id.
+
+| Field | Required | Read by |
+|---|---|---|
+| `source_id:` | yes | the parser. **Must be the whole line** — `^source_id:[ \t]*(\S+)[ \t]*$`. A trailing parenthetical makes the line unmatched and the entry invisible. Put extra detail in `years:` or `caveats:`. |
+| `years:` | only for a `<year>` family | expands the family into concrete ids. Without it a family registers nothing. |
+| `cross_check_only:` | when yes | the publication gate. `yes` refuses a chart whose every source is so marked. |
+| `tier:`, `publisher:`, `url:`, `retrieved:`, `covers:`, `caveats:`, `transformations:`, `files:`, `finding:`, `used_by:` | prose | humans. Not parsed. |
+
+A `<year>` family is for a source repeated per election with an identical
+schema:
+
+```
+source_id:        aec-hor-<year>-fp-by-party
+years:            2004, 2007, 2010, 2013, 2016, 2019, 2022
+```
+
+registers `aec-hor-2004-fp-by-party` through `aec-hor-2022-fp-by-party`. Cite the
+expanded id on the chart, never the pattern. `test_every_ingested_aec_source_id_resolves`
+fails if `data/aec_election_results.csv` cites an id this file does not hold, so
+adding an election row means adding its years here.
+
+Every id a chart cites must appear here. The check runs twice and the second
+run is the one that matters: `unsourced_figure_problems` reads the source SVG,
+and `artefact_source_id_problems` reads the built `index.html`, because the
+build rewrites ids and can produce a citation that never existed in any source
+file. See "Check the artefact, not just the source" in `AGENTS.md`.
 
 ```
 source_id:        aec-hor-2025
@@ -122,6 +150,106 @@ finding:          David Farley (One Nation) elected. TCP 58,294 (57.55%),
                   margin 15,302. First preferences 40,042 (39.53%).
 ```
 
+```
+source_id:        aec-hor-2025-fp-by-party
+title:            2025 federal election — House of Representatives,
+                  first preferences by party
+publisher:        Australian Electoral Commission
+tier:             A
+retrieved:        2026-10-04
+url:              https://results.aec.gov.au/31496/Website/Downloads/
+                  HouseFirstPrefsByPartyDownload-31496.csv
+event_id:         31496
+caveats:          identical schema to every other year; declared individually
+                  because the build resolves each id on a chart against this
+                  registry, and a family pattern would resolve nothing
+transformations:  none; TotalPercentage as published
+used_by:          chart-02
+finding:          ON 6.40% primary, 0 seats. The party's best federal primary
+                  vote in the series, and still nothing.
+```
+
+- 2026-10-04 — **House primary vote and seats won, nine general elections,
+  2001 to 2025.** Replaces the Roy Morgan cross-check as the source for
+  Chart 02. Both figures come from one AEC file per election.
+
+```
+source_id:        aec-hor-<year>-fp-by-party
+years:            2004, 2007, 2010, 2013, 2016, 2019, 2022
+title:            <year> federal election — House of Representatives,
+                  first preferences by party
+publisher:        Australian Electoral Commission
+tier:             A
+retrieved:        2026-10-04
+url:              https://results.aec.gov.au/<eventId>/Website/Downloads/
+                  HouseFirstPrefsByPartyDownload-<eventId>.csv
+event_ids:        2004 12246, 2007 13745, 2010 15508, 2013 17496,
+                  2016 20499, 2019 24310, 2022 27966, 2025 31496
+covers:           national; first preferences by party, with elected count
+caveats:          every file opens with a bracketed metadata banner line
+                  before the header, so DictReader straight onto the file
+                  reads the banner as the header
+transformations:  TotalPercentage as published, 2dp; seats from the Elected
+                  column, cross-checked against the separate party
+                  representation download
+used_by:          chart-01 (result axis: 2019, 2022), chart-02
+files:            data/aec/raw/house-first-prefs-by-party-<year>.csv
+finding:          Party recorded under a different name in every era. HAN in
+                  2001 and 2004, ON from 2007; "Pauline Hanson's One Nation"
+                  only from 2019. Matching on the modern name drops five of
+                  the nine elections. Seats won: zero at every election.
+```
+
+```
+source_id:        aec-hor-2001-fp-by-party
+title:            2001 federal election — House of Representatives, national
+                  first preferences by party
+publisher:        Australian Electoral Commission
+tier:             A
+retrieved:        2026-10-04
+url:              https://www.aec.gov.au/About_AEC/Publications/statistics/
+                  files/aec-2001-election-statistics.zip
+covers:           national; first preferences by party; members elected
+caveats:          the AEC publishes no CSV for 2001 and its live tally room
+                  (results.aec.gov.au/10822) carries a standing disclaimer
+                  that its results "are not final". These figures come from
+                  the official published statistics instead, which are
+                  final. The file is fixed-width and repeats the party once
+                  per state, so the national row must be selected by section:
+                  scanning for the first matching line returns Queensland's
+                  7.07% against the national 4.34%
+transformations:  none; National Summary block of v1_6.txt, party code HAN
+used_by:          chart-02
+files:            data/aec/raw/2001/house-first-prefs-by-party-2001.txt,
+                  house-members-elected-2001.txt, party-representation-2001.txt,
+                  code-2001.txt
+finding:          HAN 4.34% primary, 0 of 150 seats. The AEC's own code table
+                  (code-2001.txt) records HAN as "Pauline Hanson's One
+                  Nation". Confirms Roy Morgan's 4.3% cross-check. Two
+                  independent tables agree: the House party representation
+                  table has no HAN column at all, and the members elected
+                  list carries 150 members with no HAN code.
+```
+
+- 2026-10-04 — **The House has not always had 151 seats.** Verified by summing
+  every party's national total in each AEC party representation download:
+
+```
+source_id:        aec-hor-<year>-party-rep
+years:            2001, 2004, 2007, 2010, 2013, 2016, 2019, 2022
+title:            <year> federal election — House of Representatives,
+                  party representation
+publisher:        Australian Electoral Commission
+tier:             A
+retrieved:        2026-10-04
+used_by:          chart-02
+finding:          150 seats in 2001, 2004, 2007, 2010, 2013 and 2016;
+                  151 from 2019. A seat share computed against a fixed 151
+                  understates every earlier share by a twentieth, and the
+                  error is invisible because the seat line is drawn against
+                  zero either way.
+```
+
 - 2026-10-03 — By-election sweep. Checked every federal House by-election in
   the AEC archive from 2005 to 2026 (24 events). One Nation candidates stood
   in Cook 2024, Dunkley 2024, Fadden 2023, Aston 2023 and Farrer 2026. Only
@@ -137,6 +265,69 @@ finding:          David Farley (One Nation) elected. TCP 58,294 (57.55%),
   that primary vote alone is the wrong measure and that seat results are not
   predicted by primary vote alone. Requires confirmation that the same
   conversion pattern holds at scale before it can be a finding.
+
+- 2026-10-18 — **Reproduction and release-text cross-check of the polling
+  source.** The live page was re-fetched (653,602 bytes, 3 tables) and
+  `tools/ingest_roymorgan.py` re-run against it. All three output files
+  reproduce **byte-identically** apart from the `retrieved` date, so the
+  ingestion is reproducible from the source rather than a one-time transcription.
+
+  **What the release text can and cannot verify.** The page links exactly one
+  release: `roymorgan.com/findings/9877-federal-voting-intention-april-28-2025`.
+  Its narrative reads "support for One Nation increased 1.5% to 7.5%", and the
+  April 27 wave's **combined** column reads 18.5 with the footnote the release
+  itself supplies — "This includes support for One Nation (highlighted in the
+  release) of 7.5%". So the release confirms the 7.5 figure that the monthly
+  table does **not** carry as a discrete column. **No row in
+  `data/polls_roymorgan_oned.csv` is checkable against it:** the discrete series
+  stops in 2022, and the April 27 row has `pvi_oned` empty by construction.
+
+  That distinction is the whole point of the ingest's column trap, and stating
+  the check loosely here would have been the trap: 18.5 is not One Nation, it is
+  the aggregate One Nation sits inside. The release corroborates the publisher's
+  own footnote, not a plotted figure.
+
+  **The 2018-2022 waves cannot be cross-checked this way, and that is recorded
+  rather than papered over.** The page links one release. Older release IDs do
+  not resolve — `/findings/9216-…` and four probes across the 9050-9250 range all
+  returned 404 — and the findings index lists only the current wave. The Internet
+  Archive's CDX index does surface 2018-2022 releases, but Roy Morgan published
+  them **monthly** while the discrete polling table is **fortnightly**, so a
+  release reports a different survey window from the row beside it. The mid-June
+  2022 release states "Support for One Nation was up 0.5% points to 4%", which is
+  consistent with the 4.0 in the two May 2022 rows, and the discrete table has no
+  June 2022 row at all to check it against. **A wave-level cross-check of
+  2018-2022 would need an archived release for each fortnight, which does not
+  exist as a fortnightly publication.** The verification that was possible was
+  done; the one `TASKS.md` 0004 asked for is not achievable against this source,
+  and the limit is a property of the evidence rather than a step left undone.
+
+  **What was verified instead, and what it is worth.** The stronger check is the
+  one already in place: the AEC's own record agrees with Roy Morgan's
+  election-time figures to within 0.04 points at all nine elections, which tests
+  the publisher's numbers against a primary source rather than against its own
+  prose. Reproducibility is also established — re-running the ingest on a fresh
+  fetch returns byte-identical data.
+
+  **A data defect found by doing this check.** `parse_field_window()` took the
+  leading month name and applied it to every day number on the label, which
+  silently corrupted the fieldwork window of **nine cross-month waves**:
+  'April 25 - May 1, 2022' was written as 2022-04-01 to 2022-04-25, a 25-day
+  window starting three weeks early, and 'July 24/25 & 31/ August 1, 2021'
+  became 2021-07-01 to 2021-07-31. `docs/standards.md` requires a polling
+  citation to carry the fieldwork window, so this is a wrong citation, not a
+  cosmetic one. It was invisible because the windows are never rendered and the
+  chart figures are grouped by year — **no figure on the page changed.** Fixed
+  by walking the label left to right and binding each day to the month named
+  before it, with a year-boundary case for 'December 30 - January 6'.
+
+  **Why nothing caught it: only the monthly file was validated.** The discrete
+  One Nation series, which is the file every chart figure is computed from, was
+  never passed to `validate()`. `window_problems()` now checks both files, with
+  the span cap passed per series because the cadences genuinely differ — the
+  discrete waves span 2 to 14 days and the monthly waves 1 to 27. Verified to
+  fire on all three original corrupted windows and to stay silent on the
+  corrected ones and on a legitimate 27-day monthly wave.
 
 ## Task 0004 — polling source assessment
 
@@ -155,9 +346,21 @@ title:            Federal Voting - Primary Voting Intention (%), with
                   1996-2025
 publisher:        Roy Morgan Research
 tier:             B
-retrieved:        2026-10-03
+cross_check_only: yes
+retrieved:        2026-10-03, re-fetched and reproduced 2026-10-18
 url:              https://www.roymorgan.com/morgan-poll/primary-voting-intention/
 covers:           national primary vote intention, monthly, 2013 to 2025
+caveats:          **cross_check_only: yes.** A source of record for published
+                  polling figures, but not for an election result. Roy Morgan
+                  publishes its own cross-check of the count; it is not the
+                  Australian Electoral Commission's record, so any figure
+                  presented as what the ballot produced must come from the AEC
+                  instead. The marker stays. Chart 01 cleared the publication
+                  gate on 2026-10-18 not by removing it but by citing the AEC
+                  id of each result beside this id for its polling axis — the
+                  gate refuses only a chart whose EVERY source is a cross-check.
+                  Do not remove the marker to make a build pass; that is the
+                  gate being worked around rather than satisfied.
 ```
 
 What the page publishes:
@@ -224,13 +427,17 @@ count recorded.
 
 ## Ingested datasets
 
-Produced by `tools/ingest_roymorgan.py` from `roymorgan-pvi`. Reproducible: run
-against a saved copy of the page and the output is identical.
+Produced by `tools/ingest_roymorgan.py` from `roymorgan-pvi`, and by
+`tools/ingest_aec_seats.py` from the AEC downloads. Reproducible: run against
+the saved sources in `data/aec/raw/` and the output is identical.
 
 | File | Rows | What it is |
 |---|---|---|
 | `data/polls_roymorgan.csv` | 138 | Monthly PVI waves: field window, ALP, and the combined "Other Parties (ALL)" / "Indepen-dents (ALL)" cells. **`pvi_oned` is empty on every row by construction.** |
-| `data/roymorgan_election_results.csv` | 10 | Discrete One Nation primary vote by federal election, 1996 to 2025. **Cross-check only; every row requires AEC confirmation.** |
+| `data/polls_roymorgan_oned.csv` | 48 | **Discrete One Nation primary vote by fortnightly wave, 2018 to 2022.** Read from the second table on the same page, which carries a real One Nation column the monthly table lacks. 132 rows span 2013 to 2022; three are election results and are excluded by matching `\bElection\b`; the remainder that are blank for this party carry no figure. **This is the series every polling figure on the page is computed from.** |
+| `data/roymorgan_election_results.csv` | 10 | Discrete One Nation primary vote by federal election, 1996 to 2025. **Cross-check only; not a source of record for a result.** Superseded for both charts by `data/aec_election_results.csv` since task 0003 landed on 2026-10-18. Retained for the 1996 row the AEC archive does not hold, and as the cross-check the AEC series was measured against: the two agree to within 0.04 points at every election. |
+| `data/aec_election_results.csv` | 9 | **Primary vote and seats won at each federal general election, 2001 to 2025, from the AEC.** Both figures in one row, so the chart needs no cross-check. **Result axis of Chart 01 (2019, 2022) and both axes of Chart 02.** 1996 is absent: the AEC archive begins at 2001. |
+| `data/aec_by_election.csv` | 1 | **The Farrer 2026 by-election, kept in its own file.** A different kind of event on a different denominator, so a shared file would invite the comparison the chart must not make. Carries `plottable_on_general_election_series = no`, which the build checks. |
 
 Three fields are null on every poll row and must stay that way:
 
@@ -244,6 +451,21 @@ Three fields are null on every poll row and must stay that way:
 size. A band derived from a guessed `n` is fabricated precision in the visual
 language of honesty, which is the specific failure this project exists to
 expose.
+
+### Where the discrete series starts, and why
+
+The 48 usable waves are **contiguous from 2018 to 2022**. Earlier rows on that
+page are blank for this party, and 2017 is absent altogether. That is a
+property of the source, recorded rather than interpreted: the page carries no
+figures for this party before 2018 and does not say why, and this project does
+not guess. `charts/stats.py::contiguous_years()` derives the span from the data
+rather than hard-coding it, so the series range stated on the page is the range
+the data actually has.
+
+Consequence for the windows: 2019 has **5** preceding waves and 2022 has **12**,
+so the two figures on the page are means over different numbers of
+observations. Every mean is returned with `n_used` beside it, and the build
+refuses a page that states one count beside a mean taken over another.
 
 ### The denominator trap, enforced in code
 
@@ -264,7 +486,51 @@ on the monthly table. 7 regression tests cover this.
 
 ### A discontinuity in the election series
 
-| Election | Year | ON primary % |
+**Superseded 2026-10-05.** The table below is Roy Morgan's cross-check. The
+figures the page now states come from `data/aec_election_results.csv`, and the
+two agree to within **0.04 percentage points** at every one of the nine
+elections. The shape is identical; the figures are not the same figures, and
+the AEC's are the ones that ship.
+
+**The AEC series, which is what ships:**
+
+| Election | Year | AEC ab | ON primary % | Seats | House size |
+|---|---|---|---|---|---|
+| 2025 | May 3 | ON | 6.40 | 0 | 151 |
+| 2022 | May 21 | ON | 4.96 | 0 | 151 |
+| 2019 | May 18 | ON | 3.08 | 0 | 151 |
+| 2016 | July 2 | ON | 1.29 | 0 | 150 |
+| 2013 | September 7 | ON | 0.17 | 0 | 150 |
+| 2010 | August 21 | ON | 0.22 | 0 | 150 |
+| 2007 | November 24 | ON | 0.26 | 0 | 150 |
+| 2004 | October 9 | HAN | 1.19 | 0 | 150 |
+| 2001 | November 10 | HAN | 4.34 | 0 | 150 |
+
+Three things this table settled, none of which were known before it was pulled:
+
+- **The House did not always have 151 seats.** It returned 150 from 2001 to
+  2016 and 151 from 2019, verified by summing every party's national total in
+  each AEC party representation download. A seat share taken against a fixed
+  151 understates every earlier share by a fifth, and the error is invisible
+  because the seat line is drawn against zero either way.
+- **1996 has no AEC record.** The archive begins at 2001, so the "1996 to 2025"
+  span in the superseded table below cannot be sourced from the AEC at all.
+- **The party is named differently in every era.** `HAN` in 2001 and 2004, `ON`
+  from 2007, and "Pauline Hanson's One Nation" only from 2019. Matching on the
+  modern name drops five of the nine elections. This is the `AGENTS.md` gotcha
+  about matching on the AEC abbreviation per election, and it was live.
+
+The 2004-2016 block sits at 0.17-1.29 while 2001 and 2019-2025 sit at 3.08-6.40.
+That is not a smooth trend; it is a different measure of the same name. Below
+the 12.3% Senate-registration quota a party can still contest, but slate
+coverage and registered name differ across those cycles. Do not present 2001 to
+2025 as one continuous series without saying so — the chart marks the block
+rather than joining it into a single line.
+
+The superseded Roy Morgan cross-check, retained because the polling chart
+compares against it:
+
+| Election | Year | RM ON primary % |
 |---|---|---|
 | 2025 | May 3 | 6.4 |
 | 2022 | May 21 | 5.0 |
@@ -276,15 +542,6 @@ on the monthly table. 7 regression tests cover this.
 | 2004 | October 9 | 1.2 |
 | 2001 | November 10 | 4.3 |
 | 1996 | March 2 | 0.3 |
-
-The 2004-2016 block sits at 0.2-1.3 while 2001 and 2019-2025 sit at 3.1-6.4.
-That is not a smooth trend; it is a different measure of the same name. Below
-the 12.3% Senate-registration quota a party can still contest, but slate
-coverage and registered name differ across those cycles. Per `AGENTS.md`
-gotchas, series construction must match on the **AEC party abbreviation for
-each election** and record the fielded candidate count, not on the modern name.
-Do not present 1996 to 2025 as one continuous series until each row is verified
-against AEC.
 
 ---
 
@@ -364,19 +621,22 @@ third-party surface of the page.
 
 ## Placeholder figures (NOT SOURCED, NOT FOR PUBLICATION)
 
-`charts/chart_01.py` carries unsourced values carried over from the discarded
-prototype. They exist only to exercise the build. They have **no entry** in any
-source tier above, which is why they must not ship.
+**This section is now empty, and that is the intended state.**
+
+It listed `charts/chart-01.svg` and its narrow variant as PLACEHOLDER, unsourced
+figures carried over from the discarded prototype. Both were regenerated on
+2026-10-04 from the ingested Roy Morgan series, declare
+`data-source-id="roymorgan-pvi"`, and resolve to the `roymorgan-pvi` entry
+above. Chart 02 was built the same way and declares the AEC ids.
+
+The section is kept rather than deleted because `tools/build.py` refuses a
+`data-unsourced="true"` chart that this section does not mention. If a chart
+ever reverts to placeholder figures it must be recorded here, and an empty table
+is the state that means nothing is unsourced.
 
 | Figure | Status |
 |---|---|
-| `charts/chart-01.svg`, `charts/chart-01-narrow.svg` | PLACEHOLDER. Delete and regenerate under task 0007 once tasks 0003 and 0004 supply sourced data. |
-
-Both SVGs declare `data-unsourced="true"` on their root `<svg>` element, which
-is what `tools/build.py` checks. They are listed here so the unsourced figures
-are auditable from the registry rather than being a private note in a Python
-file — the build refuses a `data-unsourced="true"` chart that this section does
-not mention.
+| _(none)_ | No figure is unsourced. |
 
 The guard landed 2026-10-04. `tools/build.py` now refuses any chart that
 declares neither a `data-source-id` nor `data-unsourced="true"`, refuses a

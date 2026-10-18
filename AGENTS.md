@@ -152,3 +152,67 @@ verifiable CDN with an integrity hash recorded in `docs/data-sources.md`.
   Any fetch script must validate on page title or body text, never on status
   code alone. The live archive is `results.aec.gov.au`, one directory per
   election event.
+- **A gate that refuses to write also freezes what it gates.** Discovered
+  2026-10-06: `tools/build.py` would not write `index.html` while a publication
+  gate was red, so while the gate was red — which is its permanent state until
+  task 0003 lands — the page could not be regenerated. Three fixes to the
+  sources never reached the artefact, a session reported them as verified, and
+  nothing could tell us. Publication is now gated on `--check` exiting 0, and
+  the artefact is always buildable: `--draft` writes it marked `noindex` with a
+  banner, so a page under review is current with its data without ever looking
+  shippable. Never let a publication gate become a build gate.
+- **Check the artefact, not just the source.** The provenance, caption and
+  accessibility checks all read `charts/*.svg` and the template. A defect the
+  *build* introduces is invisible to them. This is how `data-source-id` got
+  suffixed like an element id — `roymorgan-pvi-narrow`, an id in no registry —
+  while every source file stayed correct. `artefact_source_id_problems` and
+  `test_committed_artefact_matches_a_fresh_build` now assert against
+  `index.html` itself.
+- **A CI step ordered after a step that fails by design never runs.** The drift
+  check lived in its own workflow step, behind `--check`, which is red by
+  intent. It was recorded as "verified to fail on a hand-edited artefact". It
+  had never executed, because neither had CI: the workflow was never on
+  `origin/main`. Put the checks that must produce signal *before* the known-red
+  gate, and fold drift into `--check` so step ordering cannot hide it.
+- **Validate the file that ships, not the file that is convenient.** Discovered
+  2026-10-18: `tools/ingest_roymorgan.py` ran `validate()` over the monthly table
+  only, never over `polls_roymorgan_oned.csv` — the file every chart figure is
+  computed from. Nine cross-month waves had been written with a corrupted
+  fieldwork window ('April 25 - May 1, 2022' became 2022-04-01 to 2022-04-25)
+  because `parse_field_window()` applied the label's leading month to every day
+  number. Nothing failed, because the one file with a guard could not contain the
+  defect and the one file with the defect had no guard.
+- **A figure nothing renders cannot be caught by a rendering check.** The same
+  nine windows were invisible in the charts: the windows are never drawn and the
+  figures are grouped by year, so not one plotted number moved. A wrong fieldwork
+  window is still a wrong citation, because `docs/standards.md` requires the
+  window in every polling citation. Check the data against its own labels; do not
+  rely on the artefact to reveal it.
+- **Registry families must be resolvable ids.** A `source_id:` line carrying a
+  trailing parenthetical does not match the parser at all, so the family
+  registered nothing and seven of nine AEC elections were unciteable. List a
+  family's years in a `years:` field. A family with no `years:` registers
+  nothing by design, and `test_every_ingested_aec_source_id_resolves` fails if
+  the data cites an id the registry does not hold.- **Measure at the width your rule governs.** Discovered 2026-10-18, and it is
+  the second time: task 0008 set the chart breakpoint at 1100px from readings
+  taken at 320, 640 and 1280px, and never at 1100px itself. The wide variant
+  reaches the 16px floor at 1135px, so 1100-1134px was rendering 15.48px. A
+  threshold derived from measurements that exclude the threshold is a guess
+  dressed as a finding. When you set a limit from data, measure at the limit and
+  one step either side. `TestVariantBreakpoint` now derives it from the geometry
+  (`--track-full` less two gutters equals the wide viewBox) so it cannot be
+  re-derived from the wrong sample.
+- **A guard can test the wrong neighbour and stay green on its own defect.**
+  Found again 2026-10-18 in `chart_01.py`: panel 2's plot was lowered to clear
+  its title only when `span_title_y < gap_bottom + 64`, which is false exactly
+  when the title had been pushed furthest down — the only case needing the room.
+  Every constant was reasonable; the comparison named the wrong reference. When
+  you write a guard, ask *which* quantity it must be bounded by, and add a test
+  that restores the superseded logic and asserts the guard fires on it. Passing
+  a test that never exercised the defect is how this class survives.
+- **When you fix a bug by moving code into a function, the move is where the
+  next bug is.** Extracting the panel placement above turned up a second flaw in
+  the same three lines: `span_title_y + 14` measured a one-line title's descent,
+  but the title wraps to three lines on narrow, so it was measured from the wrong
+  baseline — the same category of error as the bug being fixed. Re-derive the
+  arithmetic when you extract it; do not transcribe it.

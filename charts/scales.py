@@ -10,13 +10,51 @@ both bugs were silent:
 2. A band segment covering a single poll has zero width and renders as
    nothing, which hides a margin that WAS published. assert_no_degenerate_bands
    fails the build instead.
+
+It also owns the text-measurement primitives, because two chart modules each
+carried their own copy and both were wrong in the same way. See wrap_to_width.
 """
 
 from __future__ import annotations
 
 import math
+import textwrap
 from dataclasses import dataclass
 from typing import Iterable, Sequence
+
+
+# --- Text measurement -------------------------------------------------------
+#
+# Wrapping must be done in user units, not characters. `textwrap.wrap` counts
+# characters, but the limit that matters is the canvas width in user units.
+#
+# These are measured, not assumed: at 16px IBM Plex Mono a character advances
+# 9.632 units, and at 18px it advances 10.836. Verified in a browser with
+# getBBox against a 100-character sample, on both chart modules.
+#
+# The bug this prevents, hit independently in both charts: wrapping at 76
+# characters for a 940-unit column fits, and the same 76 characters in a 340-unit
+# narrow column needs 732 units and overruns the canvas by 392. The SVG renders
+# perfectly either way and the clipped tail is invisible in the source.
+CHAR_UNITS_16 = 9.632
+CHAR_UNITS_18 = 10.836
+
+
+def wrap_to_width(text: str, max_units: float, font_size: int = 16) -> list[str]:
+    """Wrap text so no line exceeds `max_units` user units.
+
+    The advance width differs by font size, so the caller states which applies.
+    Never wrap by character count against a canvas width: those are different
+    quantities and the mismatch is silent.
+    """
+    per_char = CHAR_UNITS_18 if font_size >= 18 else CHAR_UNITS_16
+    return textwrap.wrap(text, width=max(8, int(max_units // per_char))) or [text]
+
+
+def fits_width(text: str, max_units: float, font_size: int = 16) -> bool:
+    """True when a single unwrapped line fits inside `max_units`."""
+    per_char = CHAR_UNITS_18 if font_size >= 18 else CHAR_UNITS_16
+    return len(text) * per_char <= max_units
 
 
 @dataclass(frozen=True)

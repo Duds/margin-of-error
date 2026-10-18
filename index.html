@@ -87,59 +87,295 @@
            caption and source note live in the following .col-prose block, so
            the reading order stays heading, prose, figure, caption. -->
       <figure class="col-full" data-chart="01">
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1072 520" class="chart" role="img" aria-labelledby="chart-01-title chart-01-desc" data-unsourced="true" font-family="IBM Plex Mono, ui-monospace, monospace" style="aspect-ratio: 1072 / 520; font-variant-numeric: tabular-nums">
-  <title id="chart-01-title">One Nation primary vote intention, polls by year, with published margins of error. Placeholder figures, not published.</title>
-  <desc id="chart-01-desc">A time series of poll estimates from 1996 to 2004 plotted against election year. 3 of 4 polls carry a published margin of error, drawn as a hatched band where two or more are adjacent, and as a capped vertical whisker where a single bounded poll stands alone. 1 poll published no margin of error and is drawn as an open circle, with no interval imputed. The y axis runs from 0 to 10 per cent and is not truncated. Fills use the page semantic tokens. These are placeholder figures and are not published.</desc>
-  <defs><pattern id="hatch-mo" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="4" stroke="currentColor" stroke-width="1" /></pattern><pattern id="hatch-mo-print" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="currentColor" stroke-width="1.6" /></pattern></defs>
-  <line x1="92" y1="440.0" x2="1044" y2="440.0" stroke="var(--color-rule)" stroke-width="1" />
-  <text x="82" y="444.0" text-anchor="end" font-size="16" fill="var(--color-ink-muted)">0%</text>
-  <text x="82" y="362.4" text-anchor="end" font-size="16" fill="var(--color-ink-muted)">2%</text>
-  <text x="82" y="280.8" text-anchor="end" font-size="16" fill="var(--color-ink-muted)">4%</text>
-  <text x="82" y="199.2" text-anchor="end" font-size="16" fill="var(--color-ink-muted)">6%</text>
-  <text x="82" y="117.6" text-anchor="end" font-size="16" fill="var(--color-ink-muted)">8%</text>
-  <text x="82" y="36.0" text-anchor="end" font-size="16" fill="var(--color-ink-muted)">10%</text>
-  <line x1="92.0" y1="256.4" x2="92.0" y2="134.0" stroke="var(--band-edge)" stroke-width="1" /><line x1="86.0" y1="256.4" x2="98.0" y2="256.4" stroke="var(--band-edge)" stroke-width="1" /><line x1="86.0" y1="134.0" x2="98.0" y2="134.0" stroke="var(--band-edge)" stroke-width="1" />
-  <polygon points="687.0,195.2 1044.0,113.6 1044.0,236.0 687.0,317.6" fill="url(#hatch-mo)" class="band" color="var(--color-ink-muted)" stroke="var(--band-edge)" stroke-width="1" stroke-dasharray="4 3" />
-  <polyline points="92.0,195.2 330.0,72.8 687.0,256.4 1044.0,174.8" fill="none" stroke="var(--color-ink)" stroke-width="2" data-draw-path />
-  <circle cx="92.0" cy="195.2" r="4" fill="var(--color-ink)" />
-  <circle cx="330.0" cy="72.8" r="5" fill="none" stroke="var(--color-ink-muted)" stroke-width="1.5" />
-  <circle cx="687.0" cy="256.4" r="4" fill="var(--color-ink)" />
-  <circle cx="1044.0" cy="174.8" r="4" fill="var(--color-ink)" />
-  <text x="92.0" y="470" text-anchor="middle" font-size="16" fill="var(--color-ink-muted)">1996</text>
-  <text x="330.0" y="470" text-anchor="middle" font-size="16" fill="var(--color-ink-muted)">1998</text>
-  <text x="687.0" y="470" text-anchor="middle" font-size="16" fill="var(--color-ink-muted)">2001</text>
-  <text x="1044.0" y="470" text-anchor="middle" font-size="16" fill="var(--color-ink-muted)">2004</text>
-  <text x="82" y="20" text-anchor="end" font-size="14" fill="var(--color-ink-muted)">Primary vote, per cent</text>
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1072 640" class="chart" role="img" aria-labelledby="chart-01-title chart-01-desc" data-source-id="roymorgan-pvi aec-hor-2019-fp-by-party aec-hor-2022-fp-by-party" font-family="IBM Plex Mono, ui-monospace, monospace" style="aspect-ratio: 1072 / 640; font-variant-numeric: tabular-nums">
+  <title id="chart-01-title">Polling against the result, One Nation primary vote, federal elections 2019 and 2022</title>
+  <desc id="chart-01-desc">A two-panel chart. The upper panel shows polling minus result in percentage points for 2 federal elections, drawn from a zero rule so the axis is centred on the quantity being measured. The lower panel shows, for each election, the span of polling values published in the preceding waves as a vertical bar, the mean of those waves, and the result marked as a horizontal rule. For 2019, polling averaged 3.70 per cent across the 5 waves before the election and the party recorded 3.08 per cent, so polling overstated it by 0.62 points. For 2022, polling averaged 3.71 per cent across the 12 waves before the election and the party recorded 4.96 per cent, so polling understated it by 1.25 points. Based on 48 fortnightly waves published between 2018 and 2022. No wave carries a published margin of error, sample size or publication date, so no uncertainty interval is drawn and none is imputed. The span is not a time series: these are fortnightly snapshots and nothing is claimed about the values between them.</desc>
+  <defs><pattern id="hatch-mo" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="4" stroke="currentColor" stroke-width="1" /></pattern><pattern id="hatch-mo-print" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="currentColor" stroke-width="1.6" /></pattern><marker id="result-mark" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-ink)" /></marker></defs>
+  <text x="104" y="63.92" font-size="18" fill="var(--color-ink)">Polling minus result, percentage points</text>
+  <line x1="104" y1="149.2" x2="1044" y2="149.2" stroke="var(--color-rule)" stroke-width="1" />
+  <text x="94" y="153.2" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">-2</text>
+  <line x1="104" y1="113.5" x2="1044" y2="113.5" stroke="var(--color-rule)" stroke-width="2" />
+  <text x="94" y="117.5" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">0</text>
+  <line x1="104" y1="77.9" x2="1044" y2="77.9" stroke="var(--color-rule)" stroke-width="1" />
+  <text x="94" y="81.9" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">2</text>
+  <rect x="279.0" y="102.5" width="120.0" height="11.0" fill="var(--color-ink-muted)" />
+  <text x="339.0" y="183.16000000000003" text-anchor="middle" font-size="17" text-anchor="middle" fill="var(--color-ink)">2019</text>
+  <text x="339.0" y="92.5" text-anchor="middle" font-size="19" text-anchor="middle" fill="var(--color-ink)">+0.62</text>
+  <rect x="749.0" y="113.5" width="120.0" height="22.3" fill="var(--color-ink-muted)" />
+  <text x="809.0" y="183.16000000000003" text-anchor="middle" font-size="17" text-anchor="middle" fill="var(--color-ink)">2022</text>
+  <text x="809.0" y="155.8" text-anchor="middle" font-size="19" text-anchor="middle" fill="var(--color-ink)">−1.25</text>
+  <text x="104" y="227.2" font-size="18" fill="var(--color-ink)">Where polling sat before each election, and what the ballot gave</text>
+  <line x1="104" y1="330.0" x2="1044" y2="330.0" stroke="var(--color-rule)" stroke-width="2" stroke-dasharray="none" />
+  <text x="94" y="334.0" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">0</text>
+  <line x1="104" y1="300.4" x2="1044" y2="300.4" stroke="var(--color-rule)" stroke-width="1" stroke-dasharray="2 4" />
+  <text x="94" y="304.4" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">2</text>
+  <line x1="104" y1="270.8" x2="1044" y2="270.8" stroke="var(--color-rule)" stroke-width="1" stroke-dasharray="2 4" />
+  <text x="94" y="274.8" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">4</text>
+  <line x1="104" y1="241.2" x2="1044" y2="241.2" stroke="var(--color-rule)" stroke-width="1" stroke-dasharray="2 4" />
+  <text x="94" y="245.2" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">6</text>
+  <line x1="339.0" y1="285.6" x2="339.0" y2="263.4" stroke="var(--band-edge)" stroke-width="8" stroke-linecap="butt" opacity="0.55" />
+  <line x1="339.0" y1="275.2" x2="339.0" y2="275.2" stroke="var(--color-ink)" stroke-width="1" />
+  <line x1="326.0" y1="284.4" x2="352.0" y2="284.4" stroke="var(--color-ink)" stroke-width="2.5" />
+  <text x="339.0" y="356" font-size="16" text-anchor="middle" fill="var(--color-ink-muted)">3&#8211;4.5% polled</text>
+  <text x="339.0" y="380" font-size="16" text-anchor="middle" fill="var(--color-ink-muted)">5 waves, mean 3.70%</text>
+  <text x="339.0" y="404" font-size="17" text-anchor="middle" fill="var(--color-ink)">result 3.08%</text>
+  <line x1="809.0" y1="285.6" x2="809.0" y2="256.0" stroke="var(--band-edge)" stroke-width="8" stroke-linecap="butt" opacity="0.55" />
+  <line x1="809.0" y1="275.1" x2="809.0" y2="275.1" stroke="var(--color-ink)" stroke-width="1" />
+  <line x1="796.0" y1="256.6" x2="822.0" y2="256.6" stroke="var(--color-ink)" stroke-width="2.5" />
+  <text x="809.0" y="356" font-size="16" text-anchor="middle" fill="var(--color-ink-muted)">3&#8211;5% polled</text>
+  <text x="809.0" y="380" font-size="16" text-anchor="middle" fill="var(--color-ink-muted)">12 waves, mean 3.71%</text>
+  <text x="809.0" y="404" font-size="17" text-anchor="middle" fill="var(--color-ink)">result 4.96%</text>
+  <text x="104" y="624" font-size="16" fill="var(--color-ink-muted)">48 of 48 waves publish no margin of error, no sample size and no publication date.</text>
   </svg>
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 460" class="chart chart-narrow" role="img" aria-labelledby="chart-01-title-narrow chart-01-desc" data-unsourced="true" font-family="IBM Plex Mono, ui-monospace, monospace" style="aspect-ratio: 420 / 460; font-variant-numeric: tabular-nums">
-  <title id="chart-01-title-narrow">One Nation primary vote intention, polls by year, with published margins of error. Placeholder figures, not published.</title>
-  <desc id="chart-01-desc-narrow">A time series of poll estimates from 1996 to 2004 plotted against election year. 3 of 4 polls carry a published margin of error, drawn as a capped vertical whisker where a single bounded poll stands alone. 1 poll published no margin of error and is drawn as an open circle, with no interval imputed. The y axis runs from 0 to 10 per cent and is not truncated. Fills use the page semantic tokens. These are placeholder figures and are not published.</desc>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 620" class="chart chart-narrow" role="img" aria-labelledby="chart-01-title-narrow chart-01-desc-narrow" data-source-id="roymorgan-pvi aec-hor-2019-fp-by-party aec-hor-2022-fp-by-party" font-family="IBM Plex Mono, ui-monospace, monospace" style="aspect-ratio: 420 / 620; font-variant-numeric: tabular-nums">
+  <title id="chart-01-title-narrow">Polling against the result, One Nation primary vote, federal elections 2019 and 2022</title>
+  <desc id="chart-01-desc-narrow">A two-panel chart. The upper panel shows polling minus result in percentage points for 2 federal elections, drawn from a zero rule so the axis is centred on the quantity being measured. The lower panel shows, for each election, the span of polling values published in the preceding waves as a vertical bar, the mean of those waves, and the result marked as a horizontal rule. For 2019, polling averaged 3.70 per cent across the 5 waves before the election and the party recorded 3.08 per cent, so polling overstated it by 0.62 points. For 2022, polling averaged 3.71 per cent across the 12 waves before the election and the party recorded 4.96 per cent, so polling understated it by 1.25 points. Based on 48 fortnightly waves published between 2018 and 2022. No wave carries a published margin of error, sample size or publication date, so no uncertainty interval is drawn and none is imputed. The span is not a time series: these are fortnightly snapshots and nothing is claimed about the values between them.</desc>
+  <defs><pattern id="hatch-mo-narrow" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="4" stroke="currentColor" stroke-width="1" /></pattern><pattern id="hatch-mo-print-narrow" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="currentColor" stroke-width="1.6" /></pattern><marker id="result-mark-narrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-ink)" /></marker></defs>
+  <text x="64" y="35.2" font-size="18" fill="var(--color-ink)">Polling minus result,</text>
+  <text x="64" y="61.2" font-size="18" fill="var(--color-ink)">percentage points</text>
+  <line x1="64" y1="150.6" x2="404" y2="150.6" stroke="var(--color-rule)" stroke-width="1" />
+  <line x1="64" y1="112.9" x2="404" y2="112.9" stroke="var(--color-rule)" stroke-width="2" />
+  <text x="54" y="116.9" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">0</text>
+  <line x1="64" y1="75.2" x2="404" y2="75.2" stroke="var(--color-rule)" stroke-width="1" />
+  <rect x="120.1" y="101.2" width="57.8" height="11.7" fill="var(--color-ink-muted)" />
+  <text x="149.0" y="184.60000000000002" text-anchor="middle" font-size="17" text-anchor="middle" fill="var(--color-ink)">2019</text>
+  <text x="149.0" y="91.2" text-anchor="middle" font-size="19" text-anchor="middle" fill="var(--color-ink)">+0.62</text>
+  <rect x="290.1" y="112.9" width="57.8" height="23.6" fill="var(--color-ink-muted)" />
+  <text x="319.0" y="184.60000000000002" text-anchor="middle" font-size="17" text-anchor="middle" fill="var(--color-ink)">2022</text>
+  <text x="319.0" y="156.5" text-anchor="middle" font-size="19" text-anchor="middle" fill="var(--color-ink)">−1.25</text>
+  <text x="64" y="214.6" font-size="18" fill="var(--color-ink)">Where polling sat before each</text>
+  <text x="64" y="240.6" font-size="18" fill="var(--color-ink)">election, and what the ballot</text>
+  <text x="64" y="266.6" font-size="18" fill="var(--color-ink)">gave</text>
+  <line x1="64" y1="342.0" x2="404" y2="342.0" stroke="var(--color-rule)" stroke-width="2" stroke-dasharray="none" />
+  <text x="54" y="346.0" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">0</text>
+  <line x1="64" y1="311.3" x2="404" y2="311.3" stroke="var(--color-rule)" stroke-width="1" stroke-dasharray="2 4" />
+  <line x1="64" y1="280.6" x2="404" y2="280.6" stroke="var(--color-rule)" stroke-width="1" stroke-dasharray="2 4" />
+  <text x="54" y="284.6" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">10</text>
+  <line x1="149.0" y1="323.6" x2="149.0" y2="314.4" stroke="var(--band-edge)" stroke-width="8" stroke-linecap="butt" opacity="0.55" />
+  <line x1="149.0" y1="319.3" x2="149.0" y2="319.3" stroke="var(--color-ink)" stroke-width="1" />
+  <line x1="136.0" y1="323.1" x2="162.0" y2="323.1" stroke="var(--color-ink)" stroke-width="2.5" />
+  <text x="149.0" y="368" font-size="16" text-anchor="middle" fill="var(--color-ink-muted)">mean 3.70%</text>
+  <text x="149.0" y="392" font-size="17" text-anchor="middle" fill="var(--color-ink)">result 3.08%</text>
+  <line x1="319.0" y1="323.6" x2="319.0" y2="311.3" stroke="var(--band-edge)" stroke-width="8" stroke-linecap="butt" opacity="0.55" />
+  <line x1="319.0" y1="319.2" x2="319.0" y2="319.2" stroke="var(--color-ink)" stroke-width="1" />
+  <line x1="306.0" y1="311.5" x2="332.0" y2="311.5" stroke="var(--color-ink)" stroke-width="2.5" />
+  <text x="319.0" y="368" font-size="16" text-anchor="middle" fill="var(--color-ink-muted)">mean 3.71%</text>
+  <text x="319.0" y="392" font-size="17" text-anchor="middle" fill="var(--color-ink)">result 4.96%</text>
+  <text x="64" y="560" font-size="16" fill="var(--color-ink-muted)">48 of 48 waves publish no margin of</text>
+  <text x="64" y="582" font-size="16" fill="var(--color-ink-muted)">error, no sample size and no</text>
+  <text x="64" y="604" font-size="16" fill="var(--color-ink-muted)">publication date.</text>
+  </svg>
+</figure>
+      <figure class="col-full" data-chart="02">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1072 560" class="chart" role="img" aria-labelledby="chart-02-title chart-02-desc" data-source-id="aec-hor-2025-fp-by-party aec-hor-2001-fp-by-party aec-hor-2025-party-rep aec-by-farrer-2026" font-family="IBM Plex Mono, ui-monospace, monospace" style="aspect-ratio: 1072 / 560; font-variant-numeric: tabular-nums">
+  <title id="chart-02-title">National primary vote and share of the House held, federal elections 2001 to 2025</title>
+  <desc id="chart-02-desc">A line chart over 9 Australian federal general elections from 2001 to 2025. The upper line is the party's national primary vote share. The lower line is its share of the House, which is zero at every one of these elections, so the hatched band between the two lines is the entire distance between vote share and seat share. In 2001 the party recorded 4.34 per cent of the primary vote and won 0 of 150 seats. In 2004 the party recorded 1.19 per cent of the primary vote and won 0 of 150 seats. In 2007 the party recorded 0.26 per cent of the primary vote and won 0 of 150 seats. In 2010 the party recorded 0.22 per cent of the primary vote and won 0 of 150 seats. In 2013 the party recorded 0.17 per cent of the primary vote and won 0 of 150 seats. In 2016 the party recorded 1.29 per cent of the primary vote and won 0 of 150 seats. In 2019 the party recorded 3.08 per cent of the primary vote and won 0 of 151 seats. In 2022 the party recorded 4.96 per cent of the primary vote and won 0 of 151 seats. In 2025 the party recorded 6.4 per cent of the primary vote and won 0 of 151 seats. The House returned 150 seats to 2016 and 151 from 2019, and each share is computed against the chamber size for its own election rather than a single figure. The shaded block marks 2004 to 2016, where the party contested far fewer divisions and the figures are not the same measure as the years either side. The party's only seat came at the Farrer by-election in 2026, which is not plotted: a by-election covers one division on its own electorate rather than the whole House.</desc>
+  <defs><pattern id="hatch-mo" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="4" stroke="currentColor" stroke-width="1" /></pattern><pattern id="hatch-mo-print" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="currentColor" stroke-width="1.6" /></pattern></defs>
+  <text x="104" y="34" font-size="18" fill="var(--color-ink)">What share of the vote, and what share of the House</text>
+  <text x="104" y="64" font-size="16" fill="var(--color-ink-muted)">Seat share is over the 150-seat House from 2001 to 2016, and the 151-seat House from 2019.</text>
+  <rect x="208.4" y="169.0" width="522.2" height="271.0" fill="var(--color-rule)" opacity="0.10" />
+  <line x1="104" y1="440.0" x2="1044" y2="440.0" stroke="var(--color-rule)" stroke-width="2" stroke-dasharray="none" />
+  <text x="94" y="444.0" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">0%</text>
+  <line x1="104" y1="406.1" x2="1044" y2="406.1" stroke="var(--color-rule)" stroke-width="1" stroke-dasharray="2 4" />
+  <text x="94" y="410.1" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">1%</text>
+  <line x1="104" y1="372.2" x2="1044" y2="372.2" stroke="var(--color-rule)" stroke-width="1" stroke-dasharray="2 4" />
+  <text x="94" y="376.2" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">2%</text>
+  <line x1="104" y1="338.4" x2="1044" y2="338.4" stroke="var(--color-rule)" stroke-width="1" stroke-dasharray="2 4" />
+  <text x="94" y="342.4" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">3%</text>
+  <line x1="104" y1="304.5" x2="1044" y2="304.5" stroke="var(--color-rule)" stroke-width="1" stroke-dasharray="2 4" />
+  <text x="94" y="308.5" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">4%</text>
+  <line x1="104" y1="270.6" x2="1044" y2="270.6" stroke="var(--color-rule)" stroke-width="1" stroke-dasharray="2 4" />
+  <text x="94" y="274.6" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">5%</text>
+  <line x1="104" y1="236.8" x2="1044" y2="236.8" stroke="var(--color-rule)" stroke-width="1" stroke-dasharray="2 4" />
+  <text x="94" y="240.8" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">6%</text>
+  <line x1="104" y1="202.9" x2="1044" y2="202.9" stroke="var(--color-rule)" stroke-width="1" stroke-dasharray="2 4" />
+  <text x="94" y="206.9" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">7%</text>
+  <line x1="104" y1="169.0" x2="1044" y2="169.0" stroke="var(--color-rule)" stroke-width="1" stroke-dasharray="2 4" />
+  <text x="94" y="173.0" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">8%</text>
+  <polygon class="band" points="104.0,440.0 208.4,440.0 208.4,293.0 104.0,293.0" fill="var(--band-hatch)" stroke="none" />
+  <polygon class="band" points="208.4,440.0 312.9,440.0 312.9,399.7 208.4,399.7" fill="var(--band-hatch)" stroke="none" />
+  <polygon class="band" points="312.9,440.0 417.3,440.0 417.3,431.2 312.9,431.2" fill="var(--band-hatch)" stroke="none" />
+  <polygon class="band" points="417.3,440.0 521.8,440.0 521.8,432.5 417.3,432.5" fill="var(--band-hatch)" stroke="none" />
+  <polygon class="band" points="521.8,440.0 626.2,440.0 626.2,434.2 521.8,434.2" fill="var(--band-hatch)" stroke="none" />
+  <polygon class="band" points="626.2,440.0 730.7,440.0 730.7,396.3 626.2,396.3" fill="var(--band-hatch)" stroke="none" />
+  <polygon class="band" points="730.7,440.0 835.1,440.0 835.1,335.7 730.7,335.7" fill="var(--band-hatch)" stroke="none" />
+  <polygon class="band" points="835.1,440.0 939.6,440.0 939.6,272.0 835.1,272.0" fill="var(--band-hatch)" stroke="none" />
+  <polygon class="band" points="939.6,440.0 1044.0,440.0 1044.0,223.2 939.6,223.2" fill="var(--band-hatch)" stroke="none" />
+  <polyline points="156.2,440.0 260.7,440.0 365.1,440.0 469.6,440.0 574.0,440.0 678.4,440.0 782.9,440.0 887.3,440.0 991.8,440.0" fill="none" stroke="var(--color-ink)" stroke-width="2.5" />
+  <polyline points="156.2,293.0 260.7,399.7 365.1,431.2 469.6,432.5 574.0,434.2 678.4,396.3 782.9,335.7 887.3,272.0 991.8,223.2" fill="none" stroke="var(--color-ink)" stroke-width="2.5" />
+  <circle cx="156.2" cy="293.0" r="5" fill="var(--color-ink)" />
+  <circle cx="156.2" cy="440.0" r="5" fill="var(--color-ink)" />
+  <text x="156.2" y="466" font-size="16" text-anchor="middle" fill="var(--color-ink-muted)">2001</text>
+  <text x="156.2" y="488" font-size="16" text-anchor="middle" fill="var(--color-ink-muted)">4.34%</text>
+  <circle cx="260.7" cy="399.7" r="5" fill="var(--color-ink)" />
+  <circle cx="260.7" cy="440.0" r="5" fill="var(--color-ink)" />
+  <text x="260.7" y="466" font-size="16" text-anchor="middle" fill="var(--color-ink-muted)">2004</text>
+  <text x="260.7" y="488" font-size="16" text-anchor="middle" fill="var(--color-ink-muted)">1.19%</text>
+  <circle cx="365.1" cy="431.2" r="5" fill="var(--color-ink)" />
+  <circle cx="365.1" cy="440.0" r="5" fill="var(--color-ink)" />
+  <text x="365.1" y="466" font-size="16" text-anchor="middle" fill="var(--color-ink-muted)">2007</text>
+  <text x="365.1" y="488" font-size="16" text-anchor="middle" fill="var(--color-ink-muted)">0.26%</text>
+  <circle cx="469.6" cy="432.5" r="5" fill="var(--color-ink)" />
+  <circle cx="469.6" cy="440.0" r="5" fill="var(--color-ink)" />
+  <text x="469.6" y="466" font-size="16" text-anchor="middle" fill="var(--color-ink-muted)">2010</text>
+  <text x="469.6" y="488" font-size="16" text-anchor="middle" fill="var(--color-ink-muted)">0.22%</text>
+  <circle cx="574.0" cy="434.2" r="5" fill="var(--color-ink)" />
+  <circle cx="574.0" cy="440.0" r="5" fill="var(--color-ink)" />
+  <text x="574.0" y="466" font-size="16" text-anchor="middle" fill="var(--color-ink-muted)">2013</text>
+  <text x="574.0" y="488" font-size="16" text-anchor="middle" fill="var(--color-ink-muted)">0.17%</text>
+  <circle cx="678.4" cy="396.3" r="5" fill="var(--color-ink)" />
+  <circle cx="678.4" cy="440.0" r="5" fill="var(--color-ink)" />
+  <text x="678.4" y="466" font-size="16" text-anchor="middle" fill="var(--color-ink-muted)">2016</text>
+  <text x="678.4" y="488" font-size="16" text-anchor="middle" fill="var(--color-ink-muted)">1.29%</text>
+  <circle cx="782.9" cy="335.7" r="5" fill="var(--color-ink)" />
+  <circle cx="782.9" cy="440.0" r="5" fill="var(--color-ink)" />
+  <text x="782.9" y="466" font-size="16" text-anchor="middle" fill="var(--color-ink-muted)">2019</text>
+  <text x="782.9" y="488" font-size="16" text-anchor="middle" fill="var(--color-ink-muted)">3.08%</text>
+  <circle cx="887.3" cy="272.0" r="5" fill="var(--color-ink)" />
+  <circle cx="887.3" cy="440.0" r="5" fill="var(--color-ink)" />
+  <text x="887.3" y="466" font-size="16" text-anchor="middle" fill="var(--color-ink-muted)">2022</text>
+  <text x="887.3" y="488" font-size="16" text-anchor="middle" fill="var(--color-ink-muted)">4.96%</text>
+  <circle cx="991.8" cy="223.2" r="5" fill="var(--color-ink)" />
+  <circle cx="991.8" cy="440.0" r="5" fill="var(--color-ink)" />
+  <text x="991.8" y="466" font-size="16" text-anchor="middle" fill="var(--color-ink-muted)">2025</text>
+  <text x="991.8" y="488" font-size="16" text-anchor="middle" fill="var(--color-ink-muted)">6.4%</text>
+  <text x="116.0" y="195.0" font-size="17" text-anchor="start" fill="var(--color-ink)">primary vote</text>
+  <text x="116.0" y="426.0" font-size="17" text-anchor="start" fill="var(--color-ink)">seats won</text>
+  <text x="104" y="97.0" font-size="16" fill="var(--color-ink-muted)">Farrer by-election, 2026: one division, 39.53% primary converting to 57.55% two-party preferred.</text>
+  <text x="104" y="118.0" font-size="16" fill="var(--color-ink-muted)">Annotated, not plotted — a by-election has its own electorate and its own denominator.</text>
+  <text x="469.6" y="426.0" font-size="16" text-anchor="middle" fill="var(--color-ink-muted)">thinner slate</text>
+  <text x="104" y="514" font-size="16" fill="var(--color-ink-muted)">9 general elections, and no seat at any of them. Source: AEC first preferences by party, each</text>
+  <text x="104" y="536" font-size="16" fill="var(--color-ink-muted)">election's own file.</text>
+  </svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 680" class="chart chart-narrow" role="img" aria-labelledby="chart-02-title-narrow chart-02-desc-narrow" data-source-id="aec-hor-2025-fp-by-party aec-hor-2001-fp-by-party aec-hor-2025-party-rep aec-by-farrer-2026" font-family="IBM Plex Mono, ui-monospace, monospace" style="aspect-ratio: 420 / 680; font-variant-numeric: tabular-nums">
+  <title id="chart-02-title-narrow">National primary vote and share of the House held, federal elections 2001 to 2025</title>
+  <desc id="chart-02-desc-narrow">A line chart over 9 Australian federal general elections from 2001 to 2025. The upper line is the party's national primary vote share. The lower line is its share of the House, which is zero at every one of these elections, so the hatched band between the two lines is the entire distance between vote share and seat share. In 2001 the party recorded 4.34 per cent of the primary vote and won 0 of 150 seats. In 2004 the party recorded 1.19 per cent of the primary vote and won 0 of 150 seats. In 2007 the party recorded 0.26 per cent of the primary vote and won 0 of 150 seats. In 2010 the party recorded 0.22 per cent of the primary vote and won 0 of 150 seats. In 2013 the party recorded 0.17 per cent of the primary vote and won 0 of 150 seats. In 2016 the party recorded 1.29 per cent of the primary vote and won 0 of 150 seats. In 2019 the party recorded 3.08 per cent of the primary vote and won 0 of 151 seats. In 2022 the party recorded 4.96 per cent of the primary vote and won 0 of 151 seats. In 2025 the party recorded 6.4 per cent of the primary vote and won 0 of 151 seats. The House returned 150 seats to 2016 and 151 from 2019, and each share is computed against the chamber size for its own election rather than a single figure. The shaded block marks 2004 to 2016, where the party contested far fewer divisions and the figures are not the same measure as the years either side. The party's only seat came at the Farrer by-election in 2026, which is not plotted: a by-election covers one division on its own electorate rather than the whole House.</desc>
   <defs><pattern id="hatch-mo-narrow" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="4" stroke="currentColor" stroke-width="1" /></pattern><pattern id="hatch-mo-print-narrow" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="currentColor" stroke-width="1.6" /></pattern></defs>
-  <line x1="52" y1="392.0" x2="404" y2="392.0" stroke="var(--color-rule)" stroke-width="1" />
-  <text x="42" y="396.0" text-anchor="end" font-size="16" fill="var(--color-ink-muted)">0%</text>
-  <text x="42" y="250.4" text-anchor="end" font-size="16" fill="var(--color-ink-muted)">4%</text>
-  <text x="42" y="104.8" text-anchor="end" font-size="16" fill="var(--color-ink-muted)">8%</text>
-  <line x1="52.0" y1="228.2" x2="52.0" y2="119.0" stroke="var(--band-edge)" stroke-width="1" /><line x1="46.0" y1="228.2" x2="58.0" y2="228.2" stroke="var(--band-edge)" stroke-width="1" /><line x1="46.0" y1="119.0" x2="58.0" y2="119.0" stroke="var(--band-edge)" stroke-width="1" />
-  <polygon points="272.0,173.6 404.0,100.8 404.0,210.0 272.0,282.8" fill="url(#hatch-mo-narrow)" class="band" color="var(--color-ink-muted)" stroke="var(--band-edge)" stroke-width="1" stroke-dasharray="4 3" />
-  <polyline points="52.0,173.6 140.0,64.4 272.0,228.2 404.0,155.4" fill="none" stroke="var(--color-ink)" stroke-width="2" data-draw-path />
-  <circle cx="52.0" cy="173.6" r="4" fill="var(--color-ink)" />
-  <circle cx="140.0" cy="64.4" r="5" fill="none" stroke="var(--color-ink-muted)" stroke-width="1.5" />
-  <circle cx="272.0" cy="228.2" r="4" fill="var(--color-ink)" />
-  <circle cx="404.0" cy="155.4" r="4" fill="var(--color-ink)" />
-  <text x="52.0" y="422" text-anchor="middle" font-size="16" fill="var(--color-ink-muted)">1996</text>
-  <text x="272.0" y="422" text-anchor="middle" font-size="16" fill="var(--color-ink-muted)">2001</text>
+  <text x="64" y="34" font-size="18" fill="var(--color-ink)">What share of the vote, and</text>
+  <text x="64" y="60" font-size="18" fill="var(--color-ink)">what share of the House</text>
+  <text x="64" y="90" font-size="16" fill="var(--color-ink-muted)">Seat share is over the 150-seat</text>
+  <text x="64" y="111" font-size="16" fill="var(--color-ink-muted)">House from 2001 to 2016, and the</text>
+  <text x="64" y="132" font-size="16" fill="var(--color-ink-muted)">151-seat House from 2019.</text>
+  <rect x="101.8" y="279.0" width="188.9" height="237.0" fill="var(--color-rule)" opacity="0.10" />
+  <line x1="64" y1="516.0" x2="404" y2="516.0" stroke="var(--color-rule)" stroke-width="2" stroke-dasharray="none" />
+  <text x="54" y="520.0" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">0%</text>
+  <line x1="64" y1="486.4" x2="404" y2="486.4" stroke="var(--color-rule)" stroke-width="1" stroke-dasharray="2 4" />
+  <text x="54" y="490.4" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">1%</text>
+  <line x1="64" y1="456.8" x2="404" y2="456.8" stroke="var(--color-rule)" stroke-width="1" stroke-dasharray="2 4" />
+  <text x="54" y="460.8" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">2%</text>
+  <line x1="64" y1="427.1" x2="404" y2="427.1" stroke="var(--color-rule)" stroke-width="1" stroke-dasharray="2 4" />
+  <text x="54" y="431.1" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">3%</text>
+  <line x1="64" y1="397.5" x2="404" y2="397.5" stroke="var(--color-rule)" stroke-width="1" stroke-dasharray="2 4" />
+  <text x="54" y="401.5" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">4%</text>
+  <line x1="64" y1="367.9" x2="404" y2="367.9" stroke="var(--color-rule)" stroke-width="1" stroke-dasharray="2 4" />
+  <text x="54" y="371.9" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">5%</text>
+  <line x1="64" y1="338.2" x2="404" y2="338.2" stroke="var(--color-rule)" stroke-width="1" stroke-dasharray="2 4" />
+  <text x="54" y="342.2" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">6%</text>
+  <line x1="64" y1="308.6" x2="404" y2="308.6" stroke="var(--color-rule)" stroke-width="1" stroke-dasharray="2 4" />
+  <text x="54" y="312.6" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">7%</text>
+  <line x1="64" y1="279.0" x2="404" y2="279.0" stroke="var(--color-rule)" stroke-width="1" stroke-dasharray="2 4" />
+  <text x="54" y="283.0" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">8%</text>
+  <polygon class="band" points="64.0,516.0 101.8,516.0 101.8,387.4 64.0,387.4" fill="var(--band-hatch)" stroke="none" />
+  <polygon class="band" points="101.8,516.0 139.6,516.0 139.6,480.7 101.8,480.7" fill="var(--band-hatch)" stroke="none" />
+  <polygon class="band" points="139.6,516.0 177.3,516.0 177.3,508.3 139.6,508.3" fill="var(--band-hatch)" stroke="none" />
+  <polygon class="band" points="177.3,516.0 215.1,516.0 215.1,509.5 177.3,509.5" fill="var(--band-hatch)" stroke="none" />
+  <polygon class="band" points="215.1,516.0 252.9,516.0 252.9,511.0 215.1,511.0" fill="var(--band-hatch)" stroke="none" />
+  <polygon class="band" points="252.9,516.0 290.7,516.0 290.7,477.8 252.9,477.8" fill="var(--band-hatch)" stroke="none" />
+  <polygon class="band" points="290.7,516.0 328.4,516.0 328.4,424.8 290.7,424.8" fill="var(--band-hatch)" stroke="none" />
+  <polygon class="band" points="328.4,516.0 366.2,516.0 366.2,369.1 328.4,369.1" fill="var(--band-hatch)" stroke="none" />
+  <polygon class="band" points="366.2,516.0 404.0,516.0 404.0,326.4 366.2,326.4" fill="var(--band-hatch)" stroke="none" />
+  <polyline points="82.9,516.0 120.7,516.0 158.4,516.0 196.2,516.0 234.0,516.0 271.8,516.0 309.6,516.0 347.3,516.0 385.1,516.0" fill="none" stroke="var(--color-ink)" stroke-width="2.5" />
+  <polyline points="82.9,387.4 120.7,480.7 158.4,508.3 196.2,509.5 234.0,511.0 271.8,477.8 309.6,424.8 347.3,369.1 385.1,326.4" fill="none" stroke="var(--color-ink)" stroke-width="2.5" />
+  <circle cx="82.9" cy="387.4" r="5" fill="var(--color-ink)" />
+  <circle cx="82.9" cy="516.0" r="5" fill="var(--color-ink)" />
+  <text x="60.0" y="542" font-size="16" text-anchor="start" fill="var(--color-ink-muted)">2001</text>
+  <text x="60.0" y="564" font-size="16" text-anchor="start" fill="var(--color-ink-muted)">4.34%</text>
+  <circle cx="120.7" cy="480.7" r="5" fill="var(--color-ink)" />
+  <circle cx="120.7" cy="516.0" r="5" fill="var(--color-ink)" />
+  <circle cx="158.4" cy="508.3" r="5" fill="var(--color-ink)" />
+  <circle cx="158.4" cy="516.0" r="5" fill="var(--color-ink)" />
+  <circle cx="196.2" cy="509.5" r="5" fill="var(--color-ink)" />
+  <circle cx="196.2" cy="516.0" r="5" fill="var(--color-ink)" />
+  <circle cx="234.0" cy="511.0" r="5" fill="var(--color-ink)" />
+  <circle cx="234.0" cy="516.0" r="5" fill="var(--color-ink)" />
+  <circle cx="271.8" cy="477.8" r="5" fill="var(--color-ink)" />
+  <circle cx="271.8" cy="516.0" r="5" fill="var(--color-ink)" />
+  <circle cx="309.6" cy="424.8" r="5" fill="var(--color-ink)" />
+  <circle cx="309.6" cy="516.0" r="5" fill="var(--color-ink)" />
+  <circle cx="347.3" cy="369.1" r="5" fill="var(--color-ink)" />
+  <circle cx="347.3" cy="516.0" r="5" fill="var(--color-ink)" />
+  <circle cx="385.1" cy="326.4" r="5" fill="var(--color-ink)" />
+  <circle cx="385.1" cy="516.0" r="5" fill="var(--color-ink)" />
+  <text x="408.0" y="542" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">2025</text>
+  <text x="408.0" y="564" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">6.4%</text>
+  <text x="68.0" y="369.4" font-size="17" text-anchor="start" fill="var(--color-ink)">primary vote</text>
+  <text x="68.0" y="502.0" font-size="17" text-anchor="start" fill="var(--color-ink)">seats won</text>
+  <text x="64" y="165.0" font-size="16" fill="var(--color-ink-muted)">Farrer by-election, 2026: one</text>
+  <text x="64" y="186.0" font-size="16" fill="var(--color-ink-muted)">division, 39.53% primary converting</text>
+  <text x="64" y="207.0" font-size="16" fill="var(--color-ink-muted)">to 57.55% two-party preferred.</text>
+  <text x="64" y="228.0" font-size="16" fill="var(--color-ink-muted)">Annotated, not plotted — a by-</text>
+  <text x="64" y="249.0" font-size="16" fill="var(--color-ink-muted)">election has its own electorate and</text>
+  <text x="64" y="270.0" font-size="16" fill="var(--color-ink-muted)">its own denominator.</text>
+  <text x="64" y="590" font-size="16" fill="var(--color-ink-muted)">9 general elections, and no seat at</text>
+  <text x="64" y="612" font-size="16" fill="var(--color-ink-muted)">any of them. Source: AEC first</text>
+  <text x="64" y="634" font-size="16" fill="var(--color-ink-muted)">preferences by party, each</text>
+  <text x="64" y="656" font-size="16" fill="var(--color-ink-muted)">election's own file.</text>
   </svg>
 </figure>
 
       <div class="col-prose">
         <figcaption class="figure-caption">
-          Polling against the ballot box, by election year. The shaded band
-          marks the margin of error where the publisher stated one.
+          <p>
+            Polling against the ballot box, at the 2019 and 2022 federal
+            elections. Before 2019, 5 waves put the party between
+            3 and 4.5 per cent, averaging
+            3.70. It recorded 3.08. Before 2022,
+            12 waves averaged 3.71 and the party recorded
+            4.96. Polling ran +0.62 points high in 2019 and
+            −1.25 points low in 2022.
+          </p>
+          <p>
+            None of the 48 waves in this series carries a published
+            margin of error, sample size or publication date, so no margin is
+            drawn here and none is assumed. That is a limit on what this
+            comparison can show, not a judgement about the publisher: it marks
+            where the evidence stops, and a reader cannot judge how precise any
+            of these figures was.
+          </p>
         </figcaption>
+
+        <figcaption class="figure-caption">
+          <p>
+            National primary vote against the party's share of the House, across
+            9 federal general elections from 2001
+            to 2025. Its best primary vote in that period was
+            6.4 per cent in 2025. Across all of
+            them it won 0 seats.
+          </p>
+          <p>
+            The party's one seat came at a by-election in 2026, at a single
+            division in Farrer, NSW. It is not plotted here and not counted
+            above: a by-election covers one electorate rather than the whole
+            House, so its vote share and its seat share are not measured on the
+            same basis as a general election.
+          </p>
+          <p>
+            The House had 150 seats from 2001 to
+            2016 and has had 151 since
+            2019, so each seat share here is measured
+            against the House as it was then. The shaded block marks
+            2004 to 2016, where the party contested far
+            fewer divisions and the low figures reflect a thinner slate rather
+            than a collapse in support.
+          </p>
+        </figcaption>
+
         <p class="source-note">
-          This figure is a working draft and its numbers are not real. Every
-          figure on the finished page will resolve to a document in the
-          project's source registry that a reader can open.
+          Polling figures: Roy Morgan's published primary voting intention, read
+          from the discrete One Nation column on their own results table.
+          Election results in both figures are the Australian Electoral
+          Commission's, one file per election. A reader can open every document
+          the figures resolve to in the project's source registry.
         </p>
       </div>
     </main>

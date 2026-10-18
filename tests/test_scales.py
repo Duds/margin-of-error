@@ -5,6 +5,8 @@ silent: inverted axes and a zero-width band that hid a published margin. A
 geometry bug in this project does not throw, it publishes a wrong chart.
 """
 
+import csv
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -350,6 +352,188 @@ class TestRoyMorganColumnMapping(unittest.TestCase):
 
 
 
+class TestEveryTokenUsedIsDefined(unittest.TestCase):
+    """A `var()` naming a token the stylesheet never declares paints nothing.
+
+    Not an error. The SVG renders, the attribute is present, the attribute
+    looks right, and the fill is simply absent. `--band-hatch` was documented
+    in DESIGN.md and used by nine polygons in Chart 02 while never being
+    declared, so the shaded region between the two series was invisible and
+    nothing failed. Only measuring the computed fill showed it.
+    """
+
+    ROOT = Path(__file__).resolve().parent.parent
+    CSS = ROOT / "src" / "margin-of-error.css"
+
+    def declared_tokens(self) -> set[str]:
+        css = self.CSS.read_text()
+        return set(re.findall(r"(--[\w-]+)\s*:", css))
+
+    def tokens_used_in_charts(self) -> set[str]:
+        used: set[str] = set()
+        for svg in sorted((self.ROOT / "charts").glob("chart-*.svg")):
+            used |= set(re.findall(r"var\((--[\w-]+)", svg.read_text()))
+        return used
+
+    def test_no_chart_uses_an_undefined_token(self):
+        declared = self.declared_tokens()
+        for token in sorted(self.tokens_used_in_charts()):
+            self.assertIn(
+                token, declared,
+                f"{token} is used by a chart but never declared in the "
+                f"stylesheet, so it resolves to an empty value and paints "
+                f"nothing",
+            )
+
+    def test_the_uncertainty_tokens_are_all_declared(self):
+        """DESIGN.md lists four. All four must exist."""
+        declared = self.declared_tokens()
+        for token in (
+            "--band-fill",
+            "--band-hatch",
+            "--band-edge",
+        ):
+            self.assertIn(token, declared, f"{token} missing from the stylesheet")
+
+    def test_every_pattern_reference_resolves_within_its_own_svg(self):
+        """`fill="url(#hatch-mo)"` naming a pattern that is not in this SVG.
+
+        Three separate defects, one shape. `--band-hatch` was never declared at
+        all; then the narrow copy referenced the wide chart's pattern id, which
+        exists in the document but not inside the narrow SVG that asks for it.
+        Either way the fill silently resolves to nothing and the region is
+        invisible.
+
+        Checked per variant, because "the id exists somewhere on the page" is
+        exactly the wrong question — it is the one that let this through.
+        """
+        for svg_path in sorted((self.ROOT / "charts").glob("chart-*.svg")):
+            svg = svg_path.read_text()
+            declared = set(re.findall(r'<pattern[^>]*id="([^"]+)"', svg))
+            # url(#id) references, including any the build will rewrite later
+            referenced = set(re.findall(r"url\(#([^)]+)\)", svg))
+            for ref in sorted(referenced):
+                self.assertIn(
+                    ref, declared,
+                    f"{svg_path.name}: fill references #{ref}, which this SVG "
+                    f"does not define. Declared here: {sorted(declared)}",
+                )
+
+    def test_the_narrow_band_rule_targets_the_suffixed_pattern(self):
+        """The narrow SVG's pattern is `#hatch-mo-narrow`, not `#hatch-mo`."""
+        css = self.CSS.read_text()
+        self.assertRegex(
+            css,
+            r"\.chart-narrow\s+\.band\s*\{[^}]*fill:\s*url\(#hatch-mo-narrow\)",
+            "no screen rule points the narrow variant's bands at its own "
+            "suffixed pattern id",
+        )
+
+    def test_printed_bands_carry_the_class_the_print_rules_target(self):
+        """The print stylesheet swaps the hatch via `.band`.
+
+        An element with a `fill` attribute but no class is inert to all of it,
+        so the coarser print pattern never reached the shaded region. Both the
+        class and the fill have to be present: the fill styles the screen, the
+        class is what the print rules select on.
+        """
+        for name in ("chart-02.svg", "chart-02-narrow.svg"):
+            svg = (self.ROOT / "charts" / name).read_text()
+            polys = re.findall(r"<polygon[^>]*>", svg)
+            self.assertTrue(polys, f"{name} has no shaded regions")
+            for poly in polys:
+                self.assertIn('class="band"', poly, f"{name}: {poly[:60]}")
+
+
+class TestNarrowVariantReferences(unittest.TestCase):
+    """The narrow copy must point at its own title and desc, not the wide one's.
+
+    Found by measuring `aria-labelledby` against the ids each SVG actually
+    contains, not by reading either file. The cause was a prefix match:
+
+        tag.replace(f'aria-labelledby="{original}', ...)
+
+    which only fires when the id is the FIRST token of the attribute. With two
+    ids, `aria-labelledby="chart-01-title chart-01-desc"`, the title was
+    suffixed and the desc was not. So the narrow chart pointed at the WIDE
+    chart's desc while its own desc went unreferenced.
+
+    Invisible three ways: the SVG renders identically, every id resolves
+    because the wide desc genuinely exists, and the narrow variant is
+    display:none at wide widths where nobody inspects the attribute. A screen
+    reader is the only place it shows up, announcing the wrong description.
+    """
+
+    ROOT = Path(__file__).resolve().parent.parent
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "build", cls.ROOT / "tools" / "build.py"
+        )
+        cls.build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.build)
+
+    NARROW = (
+        '<svg role="img" aria-labelledby="chart-01-title chart-01-desc">'
+        '<title id="chart-01-title">T</title>'
+        '<desc id="chart-01-desc">D</desc>'
+        '<defs><pattern id="hatch-mo" width="4" height="4"></pattern></defs>'
+        '<rect fill="url(#hatch-mo)" />'
+        "</svg>"
+    )
+
+    def labelledby_of(self, svg: str) -> list[str]:
+        import re
+
+        m = re.search(r'aria-labelledby="([^"]+)"', svg)
+        return m.group(1).split()
+
+    def ids_in(self, svg: str) -> set[str]:
+        import re
+
+        return set(re.findall(r'id="([^"]+)"', svg))
+
+    def test_both_ids_are_suffixed_not_just_the_first(self):
+        out = self.build.add_narrow_attrs(self.NARROW)
+        self.assertEqual(
+            self.labelledby_of(out),
+            ["chart-01-title-narrow", "chart-01-desc-narrow"],
+        )
+
+    def test_every_labelledby_token_belongs_to_the_narrow_svg(self):
+        out = self.build.add_narrow_attrs(self.NARROW)
+        own = self.ids_in(out)
+        dangling = [t for t in self.labelledby_of(out) if t not in own]
+        self.assertEqual(dangling, [], f"narrow chart points at {dangling}")
+
+    def test_narrow_never_shares_an_id_with_the_wide_copy(self):
+        out = self.build.add_narrow_attrs(self.NARROW)
+        for token in self.labelledby_of(out):
+            self.assertTrue(token.endswith("-narrow"), f"{token} unsuffixed")
+
+    def test_pattern_references_are_rewritten(self):
+        out = self.build.add_narrow_attrs(self.NARROW)
+        self.assertIn("url(#hatch-mo-narrow)", out)
+        self.assertNotIn('fill="url(#hatch-mo)"', out)
+
+    def test_the_committed_page_has_no_dangling_labelledby(self):
+        """End to end, on the built output rather than the helper."""
+        import re
+
+        built = self.build.build(
+            (self.ROOT / "src" / "index.template.html").read_text()
+        )
+        dangling = []
+        for m in re.finditer(r"<svg[^>]*aria-labelledby=\"([^\"]+)\"", built):
+            tokens = m.group(1).split()
+            own = set(re.findall(r'<(?:title|desc) id="([^"]+)"', built[m.start():]))
+            dangling += [t for t in tokens if t not in own]
+        self.assertEqual(dangling, [], f"dangling aria-labelledby: {dangling}")
+
+
 class TestSvgReferences(unittest.TestCase):
     """Internal references must resolve, in the markup AND in the stylesheet.
 
@@ -369,11 +553,18 @@ class TestSvgReferences(unittest.TestCase):
         spec.loader.exec_module(cls.build)
 
     def test_committed_charts_resolve_every_reference(self):
+        """Any reference the page makes must resolve.
+
+        Chart 01 draws no band, because no wave carries a published margin, so
+        it legitimately makes no url(#...) reference. The check therefore runs
+        over whatever references exist rather than requiring them, and the
+        hatch patterns it still emits are checked separately below.
+        """
         html = (Path(__file__).resolve().parent.parent / "index.html").read_text()
         ids = set(__import__("re").findall(r'id="([^"]+)"', html))
         refs = set(__import__("re").findall(r"url\(#([^)]+)\)", html))
-        self.assertTrue(refs, "no url(#...) references found; the test is vacuous")
-        self.assertEqual(refs - ids, set(), "dangling fill references in index.html")
+        self.assertEqual(refs - ids, set(),
+                         f"dangling fill references: {sorted(refs - ids)}")
 
     def test_both_hatch_densities_are_emitted(self):
         """Screen and print patterns, plus the narrow variant's suffixed ids."""
@@ -417,5 +608,1868 @@ class TestSvgReferences(unittest.TestCase):
                                   f"{name}: band polygon cannot be targeted on print")
 
 
+
+class TestDiscreteOneNationIngest(unittest.TestCase):
+    """The second table on the Roy Morgan page, read for Task 1.
+
+    132 rows spanning 2013 to 2022, with a discrete One Nation column. 48 of
+    those rows are usable poll waves. The rest are blank for this party, and
+    two are election results sitting in the same column as the polls.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "ingest",
+            Path(__file__).resolve().parent.parent / "tools" / "ingest_roymorgan.py",
+        )
+        cls.ingest = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.ingest)
+
+    DISCRETE_HEADER = ["", "ALP", "L-NP", "The Greens", "One Nation",
+                       "NXT/ Centre Alliance", "Ind./Others"]
+
+    def discrete_table(self, rows):
+        return [self.DISCRETE_HEADER] + rows
+
+    def test_election_row_is_excluded_from_the_poll_series(self):
+        """Results and polls share the first column. Only polls belong here."""
+        tables = [self.discrete_table([
+            ["2019", "", "", "", "", "", ""],
+            ["April 20/21, 2019", "34", "34", "13", "4.5", "n/a", "15"],
+            ["2019 Federal Election - May 18, 2019", "33.3", "41.4",
+             "10.4", "3.1", "0.3", "11.5"],
+        ])]
+        rows = self.ingest.ingest_discrete_oned(tables, [])
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["pvi_oned"], 4.5)
+
+    def test_both_election_rows_are_excluded(self):
+        """2016 and 2019 both appear, and the 2019 one sits inside its own
+        year group. That is why 2019 yields 5 poll waves and not 6."""
+        tables = [self.discrete_table([
+            ["2016", "", "", "", "", "", ""],
+            ["2016 Federal Election - July 2, 2016", "34.7", "40", "10",
+             "1.3", "0", "14"],
+            ["2019", "", "", "", "", "", ""],
+            ["April 6/7, 2019", "33", "42", "11", "4.0", "0", "12"],
+            ["2019 Federal Election - May 18, 2019", "33.3", "41.4",
+             "10.4", "3.1", "0.3", "11.5"],
+        ])]
+        rows = self.ingest.ingest_discrete_oned(tables, [])
+        self.assertEqual([r["pvi_oned"] for r in rows], [4.0])
+
+    def test_blank_party_cell_yields_no_row(self):
+        """70 of the source rows are 'n/a' for this party."""
+        tables = [self.discrete_table([
+            ["2016", "", "", "", "", "", ""],
+            ["May 21/22 & 28/29, 2016", "30", "40", "12", "n/a", "n/a", "10"],
+            ["2019", "", "", "", "", "", ""],
+            ["April 6/7, 2019", "33", "42", "11", "4.0", "0", "12"],
+        ])]
+        rows = self.ingest.ingest_discrete_oned(tables, [])
+        self.assertEqual([r["pvi_oned"] for r in rows], [4.0])
+
+    def test_unpublished_fields_are_empty(self):
+        tables = [self.discrete_table([
+            ["2022", "", "", "", "", "", ""],
+            ["April 18-24, 2022", "34", "34", "12", "4.5", "n/a", "14"],
+        ])]
+        row = self.ingest.ingest_discrete_oned(tables, [])[0]
+        for field in ("n", "margin_of_error", "pub_date"):
+            self.assertEqual(row[field], "", f"{field} must stay empty")
+
+    def test_year_is_carried_down_from_the_group_header(self):
+        tables = [self.discrete_table([
+            ["2021", "", "", "", "", "", ""],
+            ["January 4-5, 2021", "34", "38", "11", "4.5", "n/a", "12"],
+        ])]
+        self.assertEqual(self.ingest.ingest_discrete_oned(tables, [])[0]["year"], 2021)
+
+    def test_missing_discrete_table_raises(self):
+        monthly_only = [[
+            ["", "ALP", "Total Others", "Other Parties (ALL)"],
+            ["2025"],
+            ["May 5-31", "37.0", "32.0", "14.5"],
+        ]]
+        with self.assertRaises(self.ingest.SourceShapeChanged):
+            self.ingest.ingest_discrete_oned(monthly_only, [])
+
+    def test_years_with_no_usable_wave_are_warned(self):
+        """2013 to 2016 carry nothing. Reported, not interpreted."""
+        tables = [self.discrete_table([
+            ["2015", "", "", "", "", "", ""],
+            ["March 3-4, 2015", "32", "45", "9", "n/a", "n/a", "13"],
+        ])]
+        tables[0].append(["2019", "", "", "", "", "", ""])
+        tables[0].append(["April 6/7, 2019", "33", "42", "11", "4.0", "0", "12"])
+        warnings = []
+        self.ingest.ingest_discrete_oned(tables, warnings)
+        self.assertTrue(any("2015" in w for w in warnings),
+                        f"no warning named 2015: {warnings}")
+
+
+
+class TestStatsWindowMean(unittest.TestCase):
+    """Every derived number is computed here and nowhere else.
+
+    Each function returning a figure also returns n_used, so no caller can
+    receive a bare float and label it with the wrong wave count.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "stats", Path(__file__).resolve().parent.parent / "charts" / "stats.py"
+        )
+        cls.stats = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.stats)
+
+    def polls(self, year, values):
+        return [self.stats.Poll(year=year, wave=f"w{i}", value=v,
+                                fielded_start=f"{year}-01-{i + 1:02d}",
+                                fielded_end=f"{year}-01-{i + 1:02d}")
+                for i, v in enumerate(values)]
+
+    def test_mean_carries_the_count_actually_used(self):
+        """Five waves exist before 2019. The mean uses five, and says so."""
+        m = self.stats.window_mean(self.polls(2019, [3.0, 4.0, 3.5, 3.5, 4.5]),
+                                   2019, window=12)
+        self.assertEqual(m.n_used, 5)
+        self.assertEqual(m.window, 12)
+        self.assertAlmostEqual(m.value, 3.7, places=6)
+
+    def test_low_and_high_come_from_the_same_waves_as_the_mean(self):
+        m = self.stats.window_mean(self.polls(2022, [3.0, 5.0, 4.0]), 2022, window=12)
+        self.assertEqual(m.low, 3.0)
+        self.assertEqual(m.high, 5.0)
+
+    def test_no_waves_returns_none_rather_than_a_shorter_window(self):
+        self.assertIsNone(self.stats.window_mean([], 2019, window=12))
+
+    def test_window_truncates_to_the_most_recent(self):
+        m = self.stats.window_mean(self.polls(2022, [9.0, 9.0, 1.0, 1.0]), 2022, window=2)
+        self.assertAlmostEqual(m.value, 1.0)
+        self.assertEqual(m.n_used, 2)
+
+    def test_gap_is_poll_minus_result(self):
+        gaps = self.stats.gaps(
+            [self.stats.Result(year=2022, value=5.0, confirmed=False)],
+            self.polls(2022, [3.5, 4.0, 3.5, 3.5]), window=12)
+        self.assertAlmostEqual(gaps[0].signed_gap, 3.625 - 5.0)
+        self.assertEqual(gaps[0].n_used, 4)
+
+    def test_gap_skips_an_election_with_no_polling(self):
+        gaps = self.stats.gaps(
+            [self.stats.Result(year=2025, value=6.4, confirmed=False)],
+            self.polls(2022, [3.5, 4.0]), window=12)
+        self.assertEqual(gaps, [])
+
+    def test_contiguous_years_spans_the_dense_years(self):
+        polls = (self.polls(2018, [3.0]) + self.polls(2019, [3.0])
+                 + self.polls(2020, [3.0]))
+        self.assertEqual(self.stats.contiguous_years(polls), (2018, 2020))
+
+    def test_contiguous_years_ignores_an_isolated_year(self):
+        """2022 sits alone, so the run is 2018-2020 and not 2018-2022."""
+        polls = (self.polls(2018, [3.0]) + self.polls(2019, [3.0])
+                 + self.polls(2020, [3.0]) + self.polls(2022, [4.0]))
+        self.assertEqual(self.stats.contiguous_years(polls), (2018, 2020))
+
+    def test_contiguous_years_does_not_bridge_a_gap(self):
+        """A 2021 gap must not be silently absorbed into one run."""
+        polls = (self.polls(2018, [3.0]) + self.polls(2019, [3.0])
+                 + self.polls(2021, [3.0]) + self.polls(2022, [3.0]))
+        self.assertEqual(self.stats.contiguous_years(polls), (2018, 2019))
+
+    def test_load_polls_rejects_an_undated_wave(self):
+        """Review Focus 1: an undated poll cannot be placed on a time axis."""
+        import csv as _csv
+        import tempfile as _tf
+        with _tf.NamedTemporaryFile("w", suffix=".csv", delete=False) as fh:
+            fh.write("year,wave_label,fielded_start,fielded_end,pvi_oned\n")
+            fh.write("2022,April 4,,2022-04-10,4.5\n")
+            path = fh.name
+        with self.assertRaises(ValueError) as ctx:
+            self.stats.load_polls(path)
+        self.assertIn("fielded_start", str(ctx.exception))
+
+    def test_load_polls_rejects_an_empty_party_figure(self):
+        import csv as _csv
+        import tempfile as _tf
+        with _tf.NamedTemporaryFile("w", suffix=".csv", delete=False) as fh:
+            fh.write("year,wave_label,fielded_start,fielded_end,pvi_oned\n")
+            fh.write("2022,April 4,2022-04-04,2022-04-10,\n")
+            path = fh.name
+        with self.assertRaises(ValueError):
+            self.stats.load_polls(path)
+
+    def test_load_polls_reads_the_real_csv(self):
+        """48 waves, 2018 to 2022, as verified in task 1."""
+        csv_path = (Path(__file__).resolve().parent.parent
+                    / "data" / "polls_roymorgan_oned.csv")
+        polls = self.stats.load_polls(csv_path)
+        self.assertEqual(len(polls), 48)
+        self.assertEqual(min(p.year for p in polls), 2018)
+        self.assertEqual(max(p.year for p in polls), 2022)
+
+    def test_real_data_means_match_the_spec_claim(self):
+        """The spec states 3.70 from 5 waves and 3.71 from 12. If these drift,
+        the published claim has drifted with them."""
+        csv_path = (Path(__file__).resolve().parent.parent
+                    / "data" / "polls_roymorgan_oned.csv")
+        polls = self.stats.load_polls(csv_path)
+        m2019 = self.stats.window_mean(polls, 2019, window=12)
+        m2022 = self.stats.window_mean(polls, 2022, window=12)
+        self.assertEqual(m2019.n_used, 5)
+        self.assertEqual(m2022.n_used, 12)
+        self.assertAlmostEqual(m2019.value, 3.70, places=2)
+        self.assertAlmostEqual(m2022.value, 3.71, places=2)
+
+
+
+class TestChart01IsDataDriven(unittest.TestCase):
+    """Chart 01 draws figures it computed, not figures someone typed."""
+
+    CHART = Path(__file__).resolve().parent.parent / "charts" / "chart-01.svg"
+    SOURCE = Path(__file__).resolve().parent.parent / "charts" / "chart_01.py"
+
+    def test_generator_holds_no_dataset_literal(self):
+        """The dataset must not appear as a typed constant.
+
+        A figure transcribed into a generator is a figure that stops agreeing
+        with its data, and nothing notices.
+        """
+        src = self.SOURCE.read_text()
+        # Only figures that could only have come from the dataset. Layout
+        # numbers like 0.60 or 5.0 are excluded: a substring test cannot tell a
+        # panel fraction from a poll result, so this asserts the figures that
+        # are unambiguous and the rendering is checked by eye in task 8.
+        for value in ("3.70", "3.71", "1.29", "4.5", "4.0"):
+            self.assertNotIn(value, src, f"{value} is transcribed, not computed")
+
+    def test_output_declares_its_source_and_not_placeholder(self):
+        svg = self.CHART.read_text()
+        self.assertNotIn('data-unsourced', svg)
+
+    def test_output_cites_the_poll_series_and_each_result_it_draws(self):
+        """Provenance is derived from the rows, so it cannot go stale.
+
+        Asserted against the data rather than a typed list: the chart must cite
+        Roy Morgan for the polling axis and the registry id of every election
+        whose result it plots. When task 0003 moved the result axis onto the
+        AEC's own record this citation changed from one id to three, and a test
+        pinned to the old string would have failed for the right reason.
+        """
+        import csv as _csv
+
+        root = Path(__file__).resolve().parent.parent
+        svg = self.CHART.read_text()
+        m = re.search(r'data-source-id="([^"]+)"', svg)
+        self.assertTrue(m, "the chart declares no provenance")
+        cited = set(m.group(1).split())
+        self.assertIn("roymorgan-pvi", cited)
+
+        with (root / "data" / "aec_election_results.csv").open(
+            encoding="utf-8", newline=""
+        ) as fh:
+            rows = {int(r["election_year"]): r["source_id"] for r in _csv.DictReader(fh)}
+        # 2019 and 2022 are the elections with preceding waves; 2025 is not,
+        # because the discrete polling series stops in 2022.
+        drawn = {y: sid for y, sid in rows.items() if y in (2019, 2022)}
+        self.assertEqual(cited - {"roymorgan-pvi"}, set(drawn.values()))
+
+    def test_each_panel_labels_the_wave_count_it_used(self):
+        """Review Focus 3: the label is bound to the arithmetic."""
+        svg = self.CHART.read_text()
+        self.assertIn("5 waves", svg)
+        self.assertIn("12 waves", svg)
+
+    def test_chart_still_carries_the_accessibility_floor(self):
+        svg = self.CHART.read_text()
+        self.assertIn('role="img"', svg)
+        self.assertIn("<title", svg)
+        self.assertIn("<desc", svg)
+        self.assertIn('id="hatch-mo-print"', svg)
+
+    def test_chart_states_that_no_wave_carries_a_margin(self):
+        """Non-negotiable 5. The absence has to be on the chart."""
+        desc = self.CHART.read_text()
+        self.assertIn("no margin of error", desc)
+
+    def test_chart_reports_both_directions_of_gap(self):
+        """The finding is that polling was high in 2019 and low in 2022."""
+        svg = self.CHART.read_text()
+        labels = re.findall(r'font-size="19"[^>]*>([^<]*)<', svg)
+        self.assertEqual(len(labels), 2, f"expected two gap labels, got {labels}")
+        self.assertTrue(labels[0].startswith("+"), f"2019 should be polling high: {labels[0]}")
+        self.assertTrue(labels[1].startswith("\u2212"),
+                        f"2022 should use a true minus sign: {labels[1]!r}")
+
+
+class TestSeatShare(unittest.TestCase):
+    """The denominator is the number of seats actually in the House.
+
+    The House returned 150 seats at the 2001 to 2016 elections and 151 from
+    2019, so "seat share" has two legitimate denominators across the span this
+    chart covers. Hard-coding either one is wrong, which is why the chamber size
+    is read from the source row rather than assumed.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "stats", Path(__file__).resolve().parent.parent / "charts" / "stats.py"
+        )
+        cls.stats = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.stats)
+
+    def test_share_is_over_the_seats_actually_in_the_house(self):
+        self.assertAlmostEqual(self.stats.seat_share(1, 151), 1 / 151)
+        self.assertAlmostEqual(self.stats.seat_share(151, 151), 1.0)
+        self.assertAlmostEqual(self.stats.seat_share(0, 151), 0.0)
+
+    def test_the_150_seat_years_use_150(self):
+        """A 1-seat share in a 150-seat House is 0.667%, not 0.662%.
+
+        The difference is 4.4e-5, which assertAlmostEqual(places=4) treats as
+        equal. Asserting on the ratio instead, because that is what actually
+        distinguishes the two denominators.
+        """
+        self.assertAlmostEqual(self.stats.seat_share(1, 150), 1 / 150)
+        self.assertGreater(
+            self.stats.seat_share(1, 150) / self.stats.seat_share(1, 151), 1.005
+        )
+
+    def test_a_chamber_size_must_be_a_positive_int(self):
+        for bad in (0, -1, 151.0, "151", None):
+            with self.assertRaises(ValueError):
+                self.stats.seat_share(1, bad)
+
+    def test_more_seats_than_the_house_has_is_refused(self):
+        """A row claiming 151 seats in a 150-seat House is corrupt data.
+
+        Refusing is better than plotting it: it would draw a 100% share and
+        flatten the axis against every other election.
+        """
+        with self.assertRaises(ValueError):
+            self.stats.seat_share(151, 150)
+
+    def test_seat_count_must_be_a_whole_non_negative_number(self):
+        for bad in (-1, 0.5, "0", None):
+            with self.assertRaises(ValueError):
+                self.stats.seat_share(bad, 151)
+
+
+class TestChart02SeatShare(unittest.TestCase):
+    """Chart 02's two series are percentages of the same elected body."""
+
+    CHART = Path(__file__).resolve().parent.parent / "charts" / "chart-02.svg"
+    SOURCE = Path(__file__).resolve().parent.parent / "charts" / "chart_02.py"
+
+    def test_wide_labels_every_election_and_narrow_labels_the_endpoints(self):
+        """A membership test against pairs silently dropped every label.
+
+        The labelled set was written `[(0, len(rows) - 1)]`, so `i not in
+        labelled` was never true and all eighteen wide labels were skipped. The
+        chart still passed every overlap and off-canvas check, because there
+        was nothing left to collide with. Counting labels is what caught it.
+        """
+        root = Path(__file__).resolve().parent.parent / "charts"
+        wide = (root / "chart-02.svg").read_text()
+        narrow = (root / "chart-02-narrow.svg").read_text()
+        rows = list(
+            csv.DictReader(
+                (
+                    Path(__file__).resolve().parent.parent
+                    / "data"
+                    / "aec_election_results.csv"
+                ).open(encoding="utf-8")
+            )
+        )
+        years = [r["election_year"] for r in rows]
+        for year in years:
+            self.assertIn(f">{year}<", wide, f"{year} unlabelled on wide")
+        # Two per election on wide (year and share), so at least two per year.
+        self.assertGreaterEqual(wide.count("<text"), len(years) * 2)
+        # Narrow cannot fit nine: a 16px year label is wider than a narrow slot.
+        self.assertLess(narrow.count("<text"), wide.count("<text"))
+        self.assertIn(f">{years[0]}<", narrow)
+        self.assertIn(f">{years[-1]}<", narrow)
+        for hidden in years[1:-1]:
+            self.assertNotIn(f">{hidden}<", narrow, f"{hidden} should be dropped")
+
+    def test_no_wrapped_line_exceeds_its_text_budget(self):
+        """Wrapping is in user units, not characters.
+
+        16px IBM Plex Mono advances 9.632 units per character, so a 52-char
+        wrap needs 501 units in a 340-unit column. Wrapping by character count
+        left every narrow header line overrunning the canvas.
+        """
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "chart02", Path(__file__).resolve().parent.parent / "charts" / "chart_02.py"
+        )
+        chart02 = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(chart02)
+
+        # CHAR_UNITS lives in scales.py now: both chart modules had their own
+        # copy and both wrapped by character count, which is the same bug twice.
+        from scales import CHAR_UNITS_16  # noqa: PLC0415
+
+        bye = {"division": "Farrer", "year": 2026,
+               "primary_pct": 39.53, "tcp_pct": 57.55}
+        for viewport in ("wide", "narrow"):
+            budget = chart02.text_column(viewport)
+            blocks = chart02.header_blocks(viewport, bye)
+            for key in ("title", "note"):
+                for line in blocks[key]:
+                    units = len(line) * CHAR_UNITS_16
+                    self.assertLessEqual(
+                        units, budget,
+                        f"{viewport} {key} line {units:.0f}u over {budget:.0f}u: "
+                        f"{line!r}",
+                    )
+
+    def test_farrer_is_an_annotation_and_never_a_point(self):
+        """A by-election has its own electorate and its own denominator."""
+        svg = self.CHART.read_text()
+        self.assertIn("Farrer", svg)
+        for element in re.findall(r"<(circle|rect|path)[^>]*>", svg):
+            self.assertNotIn("Farrer", element, "by-election plotted as a mark")
+
+    def test_chart_is_sourced_and_not_a_placeholder(self):
+        svg = self.CHART.read_text()
+        self.assertIn("data-source-id=", svg)
+        self.assertNotIn("data-unsourced", svg)
+
+    def test_every_declared_source_id_resolves_in_the_registry(self):
+        """`tools/build.py --check` passed while an id was unregistered.
+
+        The build only validates charts the template references, and Chart 02
+        is not in the template until the caption task. So a chart that is built
+        but not yet placed gets no source check at all, which is exactly when a
+        new id is most likely to be mistyped. This calls the build's own
+        validator directly so the gap is closed before the chart ships.
+        """
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "build", Path(__file__).resolve().parent.parent / "tools" / "build.py"
+        )
+        build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(build)
+
+        registry = build.data_sources()
+        for name in ("chart-02.svg", "chart-02-narrow.svg"):
+            svg = (
+                Path(__file__).resolve().parent.parent / "charts" / name
+            ).read_text()
+            self.assertEqual(
+                build.unsourced_figure_problems(name, svg, registry), []
+            )
+
+    def test_chart_02_source_ids_are_checked_directly_because_the_build_cannot(self):
+        """The build validates only charts the template references.
+
+        Chart 02 is built but not yet in the template, so
+        `tools/build.py --check` never reaches it — its source ids,
+        role="img" and print hatch are all outside the gate. That was how
+        `aec-hor-2025-fp-by-party` sat unregistered while the build reported
+        "check passed".
+
+        Rather than assert the gap stays open, this asserts the chart is
+        validated directly, so the missing placeholder cannot leave it
+        unvalidated. The placeholder arrives with the caption task; this test
+        keeps the chart honest until then and afterwards.
+        """
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "build", Path(__file__).resolve().parent.parent / "tools" / "build.py"
+        )
+        build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(build)
+
+        template = (
+            Path(__file__).resolve().parent.parent / "src" / "index.template.html"
+        ).read_text()
+        referenced = {"02"} if "<!-- chart:02 -->" in template else set()
+
+        root = Path(__file__).resolve().parent.parent / "charts"
+        registry = build.data_sources()
+        for name in ("chart-02.svg", "chart-02-narrow.svg"):
+            svg = (root / name).read_text()
+            self.assertEqual(
+                build.unsourced_figure_problems(name, svg, registry), []
+            )
+            self.assertIn('role="img"', svg)
+            self.assertIn('id="hatch-mo-print"', svg)
+
+        if not referenced:
+            # Until the template references it, this direct call is the only
+            # thing checking Chart 02. The caption task closed that gap by
+            # adding <!-- chart:02 -->, so this branch is now the fallback
+            # rather than the only line of defence.
+            self.assertTrue(
+                (root / "chart-02.svg").exists(),
+                "Chart 02 is generated but neither referenced nor validatable.",
+            )
+        else:
+            # Referenced, so the build gate reaches it. Assert the gate would
+            # actually notice a regression rather than trusting that it does.
+            template = (
+                Path(__file__).resolve().parent.parent / "src" / "index.template.html"
+            ).read_text()
+            self.assertIn("<!-- chart:02 -->", template)
+            built = (Path(__file__).resolve().parent.parent / "index.html").read_text()
+            self.assertIn('data-chart="02"', built)
+
+    def test_the_2004_to_2016_discontinuity_is_marked(self):
+        svg = self.CHART.read_text()
+        self.assertIn("2004", svg)
+        self.assertIn("2016", svg)
+
+    def test_generator_holds_no_dataset_literal(self):
+        """Seat counts and vote shares are read, never typed.
+
+        Matched as whole numbers, not substrings. A substring test cannot tell
+        a transcribed 4.3% from a 4.34% quoted in a docstring, which is the same
+        trap Task 3 hit with a panel fraction colliding with a poll result. So
+        the pattern requires the figure to end at a word boundary.
+        """
+        src = self.SOURCE.read_text()
+        for value in ("6.4", "4.3", "3.1", "0.66", "39.53", "57.55"):
+            pattern = re.compile(rf"(?<![\d.]){re.escape(value)}(?![\d])")
+            self.assertIsNone(
+                pattern.search(src), f"{value} is transcribed, not computed"
+            )
+
+    def test_chamber_size_is_stated_because_it_changed(self):
+        """150 seats then 151. A reader cannot check the share without it."""
+        svg = self.CHART.read_text()
+        self.assertIn("150-seat House", svg)
+        self.assertIn("151-seat House", svg)
+
+    def test_the_stated_chamber_boundary_matches_the_data(self):
+        """The subtitle is a computed sentence, so it can drift.
+
+        It once read "up to 2001", because the year was taken from the
+        thin-coverage block's start rather than from the chamber size. Both are
+        in the same data, unrelated to each other, and the sentence was wrong
+        while every other assertion still passed.
+        """
+        rows = list(
+            csv.DictReader(
+                (
+                    Path(__file__).resolve().parent.parent
+                    / "data"
+                    / "aec_election_results.csv"
+                ).open(encoding="utf-8")
+            )
+        )
+        small = min(int(r["chamber_size"]) for r in rows)
+        large = max(int(r["chamber_size"]) for r in rows)
+        last_small = max(
+            int(r["election_year"]) for r in rows if int(r["chamber_size"]) == small
+        )
+        first_large = min(
+            int(r["election_year"]) for r in rows if int(r["chamber_size"]) == large
+        )
+        svg = self.CHART.read_text()
+        self.assertIn(
+            f"from {rows[0]['election_year']} to {last_small}", svg
+        )
+        self.assertIn(f"House from {first_large}", svg)
+
+    def test_chart_keeps_the_accessibility_floor(self):
+        svg = self.CHART.read_text()
+        self.assertIn('role="img"', svg)
+        self.assertIn("<title", svg)
+        self.assertIn("<desc", svg)
+        self.assertIn('id="hatch-mo-print"', svg)
+
+
+class TestAecSeatIngest(unittest.TestCase):
+    """The AEC seat and vote series, and the three traps that shape it.
+
+    Every figure on Chart 02 comes from here. The tests exist because each
+    trap produces a plausible wrong number rather than an error.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "ingest_aec",
+            Path(__file__).resolve().parent.parent / "tools" / "ingest_aec_seats.py",
+        )
+        cls.ingest = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.ingest)
+
+    def test_party_is_found_by_its_abbreviation_not_its_name(self):
+        """The AEC renamed the party twice. Matching on the modern name drops
+        five of the nine elections."""
+        rows = [
+            {"PartyAb": "LP", "PartyNm": "Liberal", "TotalPercentage": "30"},
+            {"PartyAb": "ON", "PartyNm": "One Nation", "TotalPercentage": "1.29"},
+        ]
+        self.assertEqual(self.ingest.party_row(2016, rows)["TotalPercentage"], "1.29")
+
+    def test_a_year_whose_abbreviation_is_absent_raises(self):
+        """Silently returning nothing makes the series shorter than the caption
+        claims, which is the defect this project keeps finding."""
+        rows = [{"PartyAb": "ALP", "PartyNm": "Australian Labor Party"}]
+        with self.assertRaises(self.ingest.SourceShapeChanged):
+            self.ingest.party_row(2016, rows)
+
+    def test_every_election_has_a_recorded_abbreviation(self):
+        """A year with no abbreviation cannot be looked up, and must not be
+        quietly skipped."""
+        self.assertEqual(
+            set(self.ingest.ABBREVIATION_BY_YEAR),
+            {2001, 2004, 2007, 2010, 2013, 2016, 2019, 2022, 2025},
+        )
+
+    def test_2001_reads_the_national_row_not_a_state_row(self):
+        """The 2001 statistics repeat the party once per state.
+
+        Queensland reads 7.07 and the national figure is 4.34. A scan for the
+        first matching line returns Queensland, which is still a real figure
+        from the real file and would put 2001 above every election but 2025.
+        """
+        self.assertAlmostEqual(
+            float(self.ingest.national_row_2001()["vote_pct"]), 4.34
+        )
+
+    def test_chamber_size_is_counted_not_asserted(self):
+        """150 then 151. Hard-coding either is wrong for part of the series."""
+        self.assertEqual(self.ingest.chamber_size_from_members_elected_2001(), 150)
+
+    def test_seat_count_comes_from_the_source_not_from_absence(self):
+        """2001 has no by-party representation table for the House at all, so
+        the count is made from the elected members carrying the party's code."""
+        self.assertEqual(self.ingest.seats_from_members_elected_2001(), 0)
+
+    def test_the_csv_series_carries_nine_elections_and_two_chamber_sizes(self):
+        csv_path = (
+            Path(__file__).resolve().parent.parent / "data" / "aec_election_results.csv"
+        )
+        lines = csv_path.read_text().strip().splitlines()[1:]
+        self.assertEqual(len(lines), 9)
+        sizes = {int(l.split(",")[4]) for l in lines}
+        self.assertEqual(sizes, {150, 151})
+
+    def test_every_seat_count_is_zero_across_the_whole_series(self):
+        """The claim the chart makes. If this changes, the chart's claim is
+        wrong and the caption must change with it."""
+        csv_path = (
+            Path(__file__).resolve().parent.parent / "data" / "aec_election_results.csv"
+        )
+        lines = csv_path.read_text().strip().splitlines()[1:]
+        self.assertEqual({int(l.split(",")[3]) for l in lines}, {0})
+
+
+class TestWrapToWidth(unittest.TestCase):
+    """Wrapping is in user units, not characters.
+
+    Both chart modules carried their own copy and both wrapped by character
+    count, which is the same bug found twice. Chart 01's narrow variant measured
+    485 and 755 units inside a 420 canvas, so its two panel titles ran off the
+    right edge and were clipped.
+    """
+
+    def test_a_line_never_exceeds_the_budget_it_was_given(self):
+        from scales import CHAR_UNITS_16, wrap_to_width
+
+        text = (
+            "Where polling sat before each election, and what the ballot gave"
+        )
+        for budget in (340, 400, 940, 1072):
+            for line in wrap_to_width(text, budget):
+                self.assertLessEqual(
+                    len(line) * CHAR_UNITS_16,
+                    budget,
+                    f"budget {budget}: {line!r} overruns",
+                )
+
+    def test_a_character_budget_would_not_have_caught_this(self):
+        """The old failure, stated as a test so it cannot come back quietly.
+
+        76 characters is the wide chart's fit. The same 76 characters need 732
+        units, and the narrow column is 340.
+        """
+        from scales import CHAR_UNITS_16
+
+        self.assertGreater(76 * CHAR_UNITS_16, 340)
+
+    def test_the_advance_widths_are_measured_not_assumed(self):
+        """9.632 units per character at 16px, 10.836 at 18px.
+
+        Measured in a browser with getBBox over a 100-character sample. If the
+        font stack changes these are wrong and every wrapped line is wrong with
+        it, so they are asserted as a ratio rather than left implicit.
+        """
+        from scales import CHAR_UNITS_16, CHAR_UNITS_18
+
+        self.assertAlmostEqual(CHAR_UNITS_16, 9.632, places=3)
+        self.assertAlmostEqual(CHAR_UNITS_18, 10.836, places=3)
+        # 18px is 1.125x 16px in the same monospace face.
+        self.assertAlmostEqual(CHAR_UNITS_18 / CHAR_UNITS_16, 1.125, places=2)
+
+    def test_no_chart_wraps_by_character_count_any_more(self):
+        """Neither generator calls textwrap.wrap with a literal width."""
+        root = Path(__file__).resolve().parent.parent / "charts"
+        for name in ("chart_01.py", "chart_02.py"):
+            src = (root / name).read_text()
+            self.assertNotIn(
+                "textwrap.wrap(", src, f"{name} wraps by character count"
+            )
+            self.assertIn("wrap_to_width", src, f"{name} does not use the shared helper")
+
+
+class TestCaptionFiguresAreInjected(unittest.TestCase):
+    """Prose states the same numbers the charts draw, from the same source.
+
+    The alternative — typing a figure into the caption — is the drift this
+    whole repository is arranged to prevent. The archived feasibility model
+    printed 1.33% booth coverage and the prose about it said "below 15%", with
+    nothing in between to notice.
+    """
+
+    ROOT = Path(__file__).resolve().parent.parent
+    TEMPLATE = ROOT / "src" / "index.template.html"
+    BUILT = ROOT / "index.html"
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "build", cls.ROOT / "tools" / "build.py"
+        )
+        cls.build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.build)
+
+    def test_template_contains_no_dataset_literal(self):
+        """The template carries slots, never figures.
+
+        Matched as whole numbers, for the reason TestChart01IsDataDriven sets
+        out: a substring test cannot tell a figure from a year or a slot name.
+        """
+        src = self.TEMPLATE.read_text()
+        for value in ("3.70", "3.71", "0.60", "1.29", "48 waves", "39.53", "57.55"):
+            self.assertNotIn(
+                value, src, f"{value} is typed into the template, not injected"
+            )
+
+    def test_template_declares_figure_slots(self):
+        src = self.TEMPLATE.read_text()
+        for slot in ("{{gap_2019}}", "{{gap_2022}}", "{{waves_total}}"):
+            self.assertIn(slot, src, f"{slot} missing from the template")
+
+    def test_every_declared_slot_is_filled(self):
+        """An unfilled slot is the prose equivalent of an unfilled chart.
+
+        `{{gap_2019}}` left in the output ships braces and a promise to the
+        reader, and reads as finished.
+        """
+        slots = set(re.findall(r"\{\{(\w+)\}\}", self.TEMPLATE.read_text()))
+        self.assertTrue(slots, "the template declares no slots at all")
+        filled = self.build.figure_slots()
+        missing = sorted(slots - set(filled))
+        self.assertEqual(missing, [], f"slots declared but never filled: {missing}")
+
+    def test_built_page_carries_the_computed_figures(self):
+        built = self.BUILT.read_text()
+        self.assertIn("3.70", built)
+        self.assertIn("1.29", built)
+        self.assertNotIn("{{", built)
+
+    def test_the_caption_states_the_missing_margins(self):
+        """Non-negotiable 5. The absence has to be on the page, not just in
+        the chart's desc, because a reader using images off reads the caption.
+        """
+        built = self.BUILT.read_text()
+        self.assertIn("no margin of error", built)
+        self.assertIn("sample size", built)
+
+    def test_the_caption_does_not_criticise_any_publisher(self):
+        """AGENTS.md: the absence is a property of the evidence, not a finding
+        about a publisher, and the page must not present it as one."""
+        built = self.BUILT.read_text().lower()
+        for phrase in (
+            "failed to publish",
+            "refused to disclose",
+            "secretive",
+            "poor practice",
+            "should have published",
+            "withholds",
+        ):
+            self.assertNotIn(phrase, built, f"page editorialises a publisher: {phrase}")
+
+    def test_the_chart01_caption_does_not_claim_a_shown_band(self):
+        """It used to say the shaded band marks the margin of error.
+
+        No wave in the series carries one, so that sentence described a mark
+        the chart does not draw. Corrected when the real caption landed.
+        """
+        self.assertNotIn(
+            "marks the margin of error where the publisher stated one",
+            self.BUILT.read_text(),
+        )
+
+    def test_the_caption_states_the_chamber_boundary_the_data_carries(self):
+        """I typed this wrong twice.
+
+        "Between 2001 and 2016 the House had 150 seats" reads as two
+        elections, not a range. It is now computed from the data. The span is
+        pinned here so a hand-typed year cannot come back.
+        """
+        built = " ".join(self.BUILT.read_text().split())
+        self.assertIn("The House had 150 seats from 2001 to 2016", built)
+        self.assertIn("has had 151 since 2019", built)
+
+    def test_the_caption_states_the_span_the_chart_actually_shades(self):
+        """The shaded block is 2004 to 2016, not 2001 to 2016.
+
+        2001 to 2016 is the span the House had 150 seats, which is a different
+        fact about a different variable. Conflating them would describe a block
+        the chart does not draw.
+        """
+        built = " ".join(self.BUILT.read_text().split())
+        self.assertIn("The shaded block marks 2004 to 2016", built)
+        self.assertNotIn("The shaded block marks 2001 to 2016", built)
+
+
+class TestChartGateAssertions(unittest.TestCase):
+    """The gates that refuse to publish an unconfirmed or mismatched figure.
+
+    This is the safety net for the whole plan, so every one of these must be
+    seen to fire. An assertion that has never failed has not been tested.
+
+    The first is expected to be RED in the real repository until task 0003
+    delivers AEC-confirmed results. That is the gate working, not a bug.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "build", Path(__file__).resolve().parent.parent / "tools" / "build.py"
+        )
+        cls.build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.build)
+
+    REGISTRY = "source_id: roymorgan-pvi\ncross_check_only: yes\n"
+
+    def test_cross_check_only_ids_are_refused(self):
+        """The gate. Until AEC confirms, this must fail."""
+        svg = '<svg data-source-id="roymorgan-pvi"></svg>'
+        problems = self.build.unsourced_result_problems(
+            "chart-01.svg", svg, self.REGISTRY
+        )
+        self.assertTrue(problems)
+        self.assertIn("cross-check", problems[0].lower())
+
+    def test_aec_confirmed_id_clears_the_gate(self):
+        registry = "source_id: aec-hor-2022\n"
+        svg = '<svg data-source-id="aec-hor-2022"></svg>'
+        self.assertEqual(
+            self.build.unsourced_result_problems("c.svg", svg, registry), []
+        )
+
+    def test_one_confirmed_id_among_cross_check_ones_clears_the_gate(self):
+        """Chart 02 declares four ids and none is cross-check-only.
+
+        The rule is "fails if EVERY resolved id is cross-check-only", not "fails
+        if any is". A chart legitimately drawing on a cross-checked poll series
+        and a confirmed election result must pass on the strength of the
+        confirmed one.
+        """
+        registry = (
+            "source_id: roymorgan-pvi\ncross_check_only: yes\n"
+            "source_id: aec-hor-2025-fp-by-party\n"
+        )
+        svg = '<svg data-source-id="roymorgan-pvi aec-hor-2025-fp-by-party"></svg>'
+        self.assertEqual(
+            self.build.unsourced_result_problems("c.svg", svg, registry), []
+        )
+
+    def test_populated_margin_is_refused(self):
+        problems = self.build.poll_field_problems(
+            [{"wave": "w1", "margin_of_error": "2.5",
+              "fielded_start": "2022-01-01",
+              "publishes_margin_of_error": "no"}]
+        )
+        self.assertTrue(problems)
+
+    def test_null_margin_with_declared_absence_passes(self):
+        problems = self.build.poll_field_problems(
+            [{"wave": "w1", "margin_of_error": "",
+              "fielded_start": "2022-01-01",
+              "publishes_margin_of_error": "no"}]
+        )
+        self.assertEqual(problems, [])
+
+    def test_missing_field_window_is_refused(self):
+        problems = self.build.poll_field_problems(
+            [{"wave": "w1", "margin_of_error": "", "fielded_start": "",
+              "publishes_margin_of_error": "no"}]
+        )
+        self.assertTrue(problems)
+
+    def test_by_election_in_the_series_is_refused(self):
+        rows = [{"year": 2019, "is_by_election": "no"},
+                {"year": 2026, "is_by_election": "yes"}]
+        self.assertTrue(self.build.plotted_row_problems(rows))
+
+    def test_general_elections_only_pass(self):
+        rows = [{"year": y, "is_by_election": "no"} for y in (2001, 2019, 2025)]
+        self.assertEqual(self.build.plotted_row_problems(rows), [])
+
+    def test_label_count_must_match_the_arithmetic(self):
+        self.assertTrue(self.build.label_count_problems({2019: (5, 12)}))
+
+    def test_matching_label_counts_pass(self):
+        self.assertEqual(self.build.label_count_problems({2019: (5, 5)}), [])
+
+    # -- The remaining five, each proven to fire ------------------------
+
+    def test_a_dataset_literal_in_a_generator_is_refused(self):
+        problems = self.build.generator_literal_problems(
+            {"charts/chart_01.py": "GAP = 3.70\n"}
+        )
+        self.assertTrue(problems)
+
+    def test_clean_generator_source_passes(self):
+        self.assertEqual(
+            self.build.generator_literal_problems({"charts/chart_01.py": "x = 1\n"}),
+            [],
+        )
+
+    def test_a_wave_outside_the_range_must_declare_why_it_is_blank(self):
+        rows = [{"year": 2015, "wave": "w", "blank_reason": ""},
+                {"year": 2016, "wave": "w2", "blank_reason": ""}]
+        self.assertTrue(self.build.blank_reason_problems(rows, (2016, 2022)))
+
+    def test_a_declared_blank_passes(self):
+        rows = [{"year": 2015, "wave": "w", "blank_reason": "no candidates"},
+                {"year": 2016, "wave": "w2", "blank_reason": ""}]
+        self.assertEqual(self.build.blank_reason_problems(rows, (2016, 2022)), [])
+
+    def test_a_wrong_seat_denominator_is_refused(self):
+        """2004 had 150 seats. A row claiming 151 is the right number on the
+        wrong election, which a bare membership check would pass."""
+        problems = self.build.seat_denominator_problems(
+            [{"election_year": "2004", "seats_won": "0", "chamber_size": "151"}],
+            expected_small=150,
+        )
+        self.assertTrue(problems)
+
+    def test_an_impossible_chamber_size_is_refused(self):
+        problems = self.build.seat_denominator_problems(
+            [{"election_year": "2019", "seats_won": "0", "chamber_size": "300"}],
+            expected_small=150,
+        )
+        self.assertTrue(problems)
+
+    def test_the_real_two_chamber_sizes_pass(self):
+        rows = [
+            {"election_year": "2004", "seats_won": "0", "chamber_size": "150"},
+            {"election_year": "2025", "seats_won": "0", "chamber_size": "151"},
+        ]
+        self.assertEqual(
+            self.build.seat_denominator_problems(rows, expected_small=150), []
+        )
+
+    def test_house_and_senate_sharing_an_axis_is_refused(self):
+        problems = self.build.chamber_axis_problems(
+            '<svg><desc>House of Representatives and Senate results'
+            "</desc></svg>"
+        )
+        self.assertTrue(problems)
+
+    def test_mentioning_one_chamber_alone_passes(self):
+        """Neither current chart names a chamber at all.
+
+        Chart 01 is polling against results and Chart 02 says "the House" in
+        prose rather than in the figure. So the gate has nothing to fire on in
+        the real repository, and a test that adds "Senate" alone proves
+        nothing: only one chamber is named, which is allowed. Both chambers must
+        be named for the scale to be shared.
+        """
+        self.assertEqual(
+            self.build.chamber_axis_problems("<svg><text>the House</text></svg>"), []
+        )
+        self.assertEqual(
+            self.build.chamber_axis_problems("<svg><text>Senate</text></svg>"), []
+        )
+        self.assertEqual(
+            self.build.chamber_axis_problems("<svg><text>a poll</text></svg>"), []
+        )
+
+    def test_caption_wave_count_must_equal_the_rows_used(self):
+        self.assertTrue(self.build.caption_count_problems(48, 47))
+
+    def test_matching_caption_count_passes(self):
+        self.assertEqual(self.build.caption_count_problems(48, 48), [])
+
+
+class TestPublicationGateIsGreenAndStillFalsifiable(unittest.TestCase):
+    """Task 0003 landed on 2026-10-18, so the gate must now be clear.
+
+    This class used to assert the opposite: that `--check` failed while
+    chart-01's result axis rested on Roy Morgan's cross-check. Its own docstring
+    said to replace it when 0003 arrived. Replacing it is not the same as
+    deleting the guard, so the assertion is inverted *and* the gate is proven to
+    still fire by mutating the citation back to a cross-check-only id in a
+    scratch copy. A gate that has only ever been seen green is indistinguishable
+    from a gate that was loosened.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        cls.ROOT = Path(__file__).resolve().parent.parent
+        spec = importlib.util.spec_from_file_location(
+            "build", cls.ROOT / "tools" / "build.py"
+        )
+        cls.build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.build)
+
+    def test_the_build_check_now_passes(self):
+        import subprocess
+
+        proc = subprocess.run(
+            [sys.executable, "tools/build.py", "--check"],
+            cwd=self.ROOT, capture_output=True, text=True,
+        )
+        self.assertEqual(
+            proc.returncode, 0,
+            "tools/build.py --check failed. If chart-01 has moved back onto a "
+            f"cross-check-only source that is a regression to fix, not a gate "
+            f"to celebrate:\n{proc.stdout}{proc.stderr}",
+        )
+
+    def test_the_gate_still_fires_on_a_cross_check_only_result_axis(self):
+        """The falsification. Revert the citation and the gate must refuse."""
+        registry = (self.ROOT / "docs" / "data-sources.md").read_text(
+            encoding="utf-8"
+        )
+        svg = '<svg data-source-id="roymorgan-pvi"></svg>'
+        problems = self.build.unsourced_result_problems(
+            "chart-01.svg", svg, registry
+        )
+        self.assertTrue(
+            problems,
+            "a chart citing only the cross-checked poll series was accepted. "
+            "The gate has been loosened rather than satisfied.",
+        )
+        self.assertIn("cross-check", problems[0].lower())
+
+    def test_citing_a_confirmed_aec_id_beside_the_poll_series_clears_it(self):
+        """The shape chart-01 now has, asserted on the real registry."""
+        registry = (self.ROOT / "docs" / "data-sources.md").read_text(
+            encoding="utf-8"
+        )
+        svg = (
+            '<svg data-source-id="roymorgan-pvi aec-hor-2019-fp-by-party '
+            'aec-hor-2022-fp-by-party"></svg>'
+        )
+        self.assertEqual(
+            self.build.unsourced_result_problems("chart-01.svg", svg, registry),
+            [],
+        )
+
+    def test_the_registry_still_marks_roymorgan_cross_check_only(self):
+        """Clearing the gate must not have involved un-marking the source.
+
+        `roymorgan-pvi` is still a cross-check for a *result*. The chart passes
+        because it now cites a source of record beside it, not because the
+        marker was removed to make the build go green.
+        """
+        registry = (self.ROOT / "docs" / "data-sources.md").read_text(
+            encoding="utf-8"
+        )
+        entries = self.build._registry_entries(registry)
+        self.assertTrue(
+            entries.get("roymorgan-pvi"),
+            "the cross-check marker was removed from roymorgan-pvi. That is "
+            "working around the gate rather than satisfying it.",
+        )
+
+
+class TestDocumentedFiguresMatchTheData(unittest.TestCase):
+    """The registry, chart specs and TASKS state figures in prose.
+
+    Prose is not generated, so it can drift from the data silently — and the
+    failure is invisible, because a wrong number in a sentence still renders as
+    a sentence. This checks the figures the documents state against the data,
+    so a data change that invalidates a documented claim fails the suite rather
+    than shipping.
+    """
+
+    ROOT = Path(__file__).resolve().parent.parent
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "build", cls.ROOT / "tools" / "build.py"
+        )
+        cls.build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.build)
+        cls.slots = cls.build.figure_slots()
+        cls.aec = list(
+            csv.DictReader((cls.ROOT / "data" / "aec_election_results.csv").open())
+        )
+
+    def doc(self, name: str) -> str:
+        return (self.ROOT / name).read_text()
+
+    def test_the_registry_aec_table_matches_the_ingested_rows(self):
+        """Every year, abbreviation, share, seat count and chamber size.
+
+        Compared on the numeric value rather than the printed string. The table
+        prints 6.40 where the CSV holds 6.4, and a test that insisted on a
+        literal match would be asserting a formatting choice rather than a fact.
+        """
+        registry = self.doc("docs/data-sources.md")
+        rows = {}
+        for line in registry.splitlines():
+            cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            if len(cells) == 6 and cells[0].isdigit() and len(cells[0]) == 4:
+                rows[int(cells[0])] = cells
+
+        for row in self.aec:
+            year = int(row["election_year"])
+            self.assertIn(year, rows, f"{year} missing from the registry table")
+            cells = rows[year]
+            self.assertEqual(cells[2], row["party_ab"], f"{year} abbreviation")
+            self.assertEqual(
+                float(cells[3]), float(row["primary_vote_pct"]), f"{year} share"
+            )
+            self.assertEqual(int(cells[4]), int(row["seats_won"]), f"{year} seats")
+            self.assertEqual(
+                int(cells[5]), int(row["chamber_size"]), f"{year} chamber size"
+            )
+
+        self.assertEqual(len(rows), len(self.aec), "registry table has extra rows")
+
+    def test_the_registry_does_not_overstate_the_cross_check_difference(self):
+        """It claimed 0.11pp; the real maximum is 0.04pp.
+
+        Found by computing it rather than trusting the sentence. The claim was
+        wrong in the direction that makes the cross-check look less reliable
+        than it is, which is the direction that matters.
+        """
+        rm = {
+            int(r["election_year"]): float(r["primary_vote_oned_pct"])
+            for r in csv.DictReader(
+                (self.ROOT / "data" / "roymorgan_election_results.csv").open()
+            )
+        }
+        worst = max(
+            abs(float(r["primary_vote_pct"]) - rm[int(r["election_year"])])
+            for r in self.aec
+        )
+        registry = self.doc("docs/data-sources.md")
+        self.assertIn(f"{worst:.2f} percentage points", registry)
+        self.assertNotIn("0.11 percentage points", registry)
+
+    def test_chart_specs_states_the_computed_gaps(self):
+        specs = self.doc("docs/chart-specs.md")
+        for year in ("2019", "2022"):
+            gap = self.slots[f"gap_{year}"]
+            magnitude = gap.lstrip("+−").lstrip("+")
+            self.assertIn(f"{magnitude} points", specs, f"{year} gap not stated")
+
+    def test_chart_specs_states_the_series_range_and_its_block(self):
+        specs = self.doc("docs/chart-specs.md")
+        # The spec spells small counts in words where it reads as prose, so
+        # accept either form rather than pinning a formatting choice.
+        count = len(self.aec)
+        self.assertTrue(
+            f"{count} general elections" in specs
+            or f"{count} general elections" in specs
+            or (count == 9 and "Nine general elections" in specs),
+            f"the spec does not state that the series is {count} elections",
+        )
+        block = [
+            float(r["primary_vote_pct"])
+            for r in self.aec
+            if 2004 <= int(r["election_year"]) <= 2016
+        ]
+        self.assertIn(f"{min(block):g} to {max(block):g}", specs)
+
+    def test_tasks_events_records_both_directions_of_gap(self):
+        tasks = self.doc("TASKS.md")
+        self.assertIn("points HIGH in 2019", tasks)
+        self.assertIn("points LOW in 2022", tasks)
+
+    def test_the_registry_marks_roymorgan_as_cross_check_only(self):
+        """The marker is what keeps the gate red. Removing it is working
+        around the gate rather than satisfying it."""
+        registry = self.doc("docs/data-sources.md")
+        entry = registry.split("source_id:        roymorgan-pvi")[1]
+        block = entry.split("```")[0]
+        self.assertIn("cross_check_only: yes", block)
+
+    def test_chart_specs_records_the_numbering_collision(self):
+        """Two entries claimed 02 once the seat chart moved forward.
+
+        Renumbering the old "Chart 02 — Seat margin" to 06 was the fix. Left
+        unrecorded, the next reader finds two charts called 02 and no way to
+        tell which one is built.
+        """
+        specs = self.doc("docs/chart-specs.md")
+        self.assertIn("RENUMBERED 2026-10-05", specs)
+        self.assertIn("Chart 06 — Seat margin", specs)
+
+
+
+class TestRegistryFamilyResolution(unittest.TestCase):
+    r"""A `<year>` family must register its years, or the ids are unciteable.
+
+    The AEC first-preferences family was written as
+    `aec-hor-<year>-fp-by-party   (2004, 2007, ...)` inside the source_id line.
+    The parser's regex is `^source_id:\s*(\S+)\s*$`, so the parenthetical made
+    the whole line unmatched: the family registered nothing, and seven of the
+    nine elections in data/aec_election_results.csv could not be cited. Chart 02
+    passed only because it happens to cite 2001 and 2025, which were also
+    written up individually.
+
+    So the years moved to their own `years:` field, and the parser expands the
+    family against it.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "build", Path(__file__).resolve().parent.parent / "tools" / "build.py"
+        )
+        cls.build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.build)
+
+    def test_every_ingested_aec_source_id_resolves(self):
+        """The data file cites ids; the registry must hold every one.
+
+        Read from the data rather than listed here, so a new election row with
+        an unregistered source id fails this test instead of shipping.
+        """
+        root = Path(__file__).resolve().parent.parent
+        registry = (root / "docs" / "data-sources.md").read_text(encoding="utf-8")
+        entries = self.build._registry_entries(registry)
+        with (root / "data" / "aec_election_results.csv").open(
+            encoding="utf-8", newline=""
+        ) as fh:
+            cited = {row["source_id"] for row in csv.DictReader(fh)}
+        missing = sorted(cited - set(entries))
+        self.assertEqual(
+            missing,
+            [],
+            f"data/aec_election_results.csv cites source ids the registry does "
+            f"not hold: {missing}. A chart citing them is refused.",
+        )
+
+    def test_family_without_years_registers_nothing(self):
+        """A family with no year list is a defect, not an empty set.
+
+        Expanding to zero ids would silently make every citation against it
+        unknown, which is the failure mode this whole class exists to catch.
+        """
+        reg = "source_id: aec-hor-<year>-fp-by-party\ntitle: nothing\n"
+        self.assertEqual(self.build._registry_entries(reg), {})
+
+    def test_family_does_not_borrow_another_blocks_years(self):
+        """Each family reads only its own block."""
+        reg = (
+            "source_id: aec-hor-<year>-alpha\nyears: 2001, 2002\n\n"
+            "source_id: aec-hor-<year>-beta\n"
+        )
+        entries = self.build._registry_entries(reg)
+        self.assertIn("aec-hor-2001-alpha", entries)
+        self.assertNotIn("aec-hor-2001-beta", entries)
+
+    def test_cross_check_flag_applies_to_the_family_members(self):
+        """A cross-check-only family must mark its expanded ids, not the pattern."""
+        reg = (
+            "source_id: poll-<year>-pvi\nyears: 2019, 2022\n"
+            "cross_check_only: yes\n"
+        )
+        entries = self.build._registry_entries(reg)
+        self.assertTrue(entries.get("poll-2019-pvi"))
+        self.assertTrue(entries.get("poll-2022-pvi"))
+        self.assertNotIn("poll-<year>-pvi", entries)
+
+
+class TestProvenanceIdsAreNotElementIds(unittest.TestCase):
+    """`data-source-id` must never be suffixed as though it were an element id.
+
+    The narrow-variant pass collects ids with `id="([^"]+)"`, which also matches
+    the tail of `data-source-id="roymorgan-pvi"`. It then appended `-narrow` to
+    the provenance key, so the built page cited `roymorgan-pvi-narrow` — an id in
+    no registry — and the unknown-id gate refused to write. That refusal is what
+    let the committed artefact go stale.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "build", Path(__file__).resolve().parent.parent / "tools" / "build.py"
+        )
+        cls.build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.build)
+
+    SVG = (
+        '<svg viewBox="0 0 10 10" role="img" '
+        'aria-labelledby="c-title c-desc" data-source-id="aec-hor-2025">'
+        '<title id="c-title">t</title><desc id="c-desc">d</desc>'
+        '<pattern id="hatch-mo"></pattern>'
+        '<polygon fill="url(#hatch-mo)" />'
+        "</svg>"
+    )
+
+    def test_provenance_key_survives_untouched(self):
+        out = self.build.add_narrow_attrs(self.SVG)
+        self.assertIn('data-source-id="aec-hor-2025"', out)
+        self.assertNotIn("aec-hor-2025-narrow", out)
+
+    def test_element_ids_are_still_suffixed(self):
+        """The fix must not disable the suffixing it sits next to."""
+        out = self.build.add_narrow_attrs(self.SVG)
+        self.assertIn('id="hatch-mo-narrow"', out)
+        self.assertIn("url(#hatch-mo-narrow)", out)
+        self.assertIn('aria-labelledby="c-title-narrow c-desc-narrow"', out)
+
+    def test_built_page_cites_only_registered_source_ids(self):
+        """The artefact gate, asserted on the real committed page.
+
+        Checking the source SVGs alone could not see a defect the build
+        introduces, which is how this one hid.
+        """
+        root = Path(__file__).resolve().parent.parent
+        registry = (root / "docs" / "data-sources.md").read_text(encoding="utf-8")
+        html = (root / "index.html").read_text(encoding="utf-8")
+        self.assertEqual(
+            self.build.artefact_source_id_problems(html, registry),
+            [],
+            "the built page cites a source id the registry does not hold",
+        )
+
+
+class TestDuplicateElementIds(unittest.TestCase):
+    """Two charts must not declare the same id with different content.
+
+    Every chart emits its own `<pattern id="hatch-mo">`, and only the narrow
+    variant is suffixed, so two wide charts in one page both declare it and
+    every `url(#hatch-mo)` resolves to whichever comes first. Harmless while the
+    patterns are byte-identical, which they are; silently wrong the moment one
+    generator's density changes, because the change would have no effect and
+    nothing would say so.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "build", Path(__file__).resolve().parent.parent / "tools" / "build.py"
+        )
+        cls.build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.build)
+
+    def test_identical_duplicates_pass(self):
+        """The current state: same id, same bytes, so the reference is inert."""
+        block = '<pattern id="hatch-mo" width="4"><line stroke-width="1" /></pattern>'
+        html = f"<svg>{block}</svg><svg>{block}</svg>"
+        self.assertEqual(self.build.duplicate_id_problems(html), [])
+
+    def test_divergent_duplicates_are_refused(self):
+        a = '<pattern id="hatch-mo" width="4"><line stroke-width="1" /></pattern>'
+        b = '<pattern id="hatch-mo" width="6"><line stroke-width="1.6" /></pattern>'
+        problems = self.build.duplicate_id_problems(f"<svg>{a}</svg><svg>{b}</svg>")
+        self.assertTrue(problems, "a divergent duplicate id must be refused")
+        self.assertIn("hatch-mo", problems[0])
+
+    def test_committed_page_has_no_divergent_duplicates(self):
+        root = Path(__file__).resolve().parent.parent
+        html = (root / "index.html").read_text(encoding="utf-8")
+        self.assertEqual(self.build.duplicate_id_problems(html), [])
+
+
+class TestDraftArtefact(unittest.TestCase):
+    """The page under a red gate is built and marked, not left unbuildable.
+
+    Refusing to write was the original behaviour and it is why the committed
+    index.html went stale: while the gate was red the page could not be
+    regenerated, so three fixes to the sources never reached the artefact and
+    nothing reported it.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "build", Path(__file__).resolve().parent.parent / "tools" / "build.py"
+        )
+        cls.build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.build)
+        root = Path(__file__).resolve().parent.parent
+        cls.template = (root / "src" / "index.template.html").read_text(
+            encoding="utf-8"
+        )
+        cls.registry = (root / "docs" / "data-sources.md").read_text(encoding="utf-8")
+
+    def test_draft_page_carries_noindex_and_a_banner(self):
+        html = self.build.mark_draft("<html><head></head><body></body></html>", ["x"])
+        self.assertIn('name="robots" content="noindex"', html)
+        self.assertIn('data-draft="true"', html)
+
+    def test_the_banner_does_not_change_the_validation_result(self):
+        """The marked page must be judged the same as the unmarked one.
+
+        If the banner itself tripped a rule, the draft artefact would carry a
+        defect the gate never saw — the same class of failure as the undefined
+        --band-hatch, which was invisible because an absent paint is not an
+        error.
+        """
+        html = self.build.build(self.template)
+        problems = self.build.validate(html, self.template)
+        # The gate is green on the real repo since task 0003 landed, so this
+        # cannot rely on a red state to exercise the banner. It is given a
+        # synthetic problem list instead: the banner text must be inert no
+        # matter what it says, so marking a page must never change what the
+        # gate reports about it.
+        reasons = problems or ["a gate exercised only for this test"]
+        marked = self.build.mark_draft(html, reasons)
+        after = self.build.validate(marked, self.template)
+        self.assertEqual(
+            len(after), len(problems), f"banner changed the result: {after}"
+        )
+
+    def test_marking_refuses_a_template_it_cannot_mark(self):
+        """A draft that cannot be marked must not be written as a draft."""
+        with self.assertRaises(SystemExit):
+            self.build.mark_draft("<html><body></body></html>", ["x"])
+        with self.assertRaises(SystemExit):
+            self.build.mark_draft("<html><head></head></html>", ["x"])
+
+    def test_check_reports_gates_and_drift_separately(self):
+        """A red gate must not be able to hide a stale artefact.
+
+        Drift lived only in a CI step ordered after a step that fails by
+        design, so it had never executed. It is now measured by --check itself.
+        """
+        root = Path(__file__).resolve().parent.parent
+        html = self.build.build(self.template)
+        problems = self.build.validate(html, self.template)
+        expected = self.build.mark_draft(html, problems) if problems else html
+        self.assertEqual(self.build.drift_problems(expected), [])
+        self.assertTrue(
+            self.build.drift_problems(expected + "\n<!-- hand edited -->")
+        )
+
+    def test_committed_artefact_matches_a_fresh_build(self):
+        """The regression this whole class exists for.
+
+        Asserted against the real file, not a fixture: the last session
+        reported four fixes as verified when the artefact still contained three
+        of the defects.
+        """
+        root = Path(__file__).resolve().parent.parent
+        html = self.build.build(self.template)
+        problems = self.build.validate(html, self.template)
+        expected = self.build.mark_draft(html, problems) if problems else html
+        committed = (root / "index.html").read_text(encoding="utf-8")
+        self.assertEqual(
+            committed,
+            expected,
+            "index.html is stale. Run `python3 tools/build.py"
+            + (" --draft" if problems else "")
+            + "` and commit the result.",
+        )
+
+    def test_narrow_charts_announce_their_own_description(self):
+        """The defect the stale artefact preserved.
+
+        `aria-labelledby` was rewritten only for its first token, so each narrow
+        chart pointed at the WIDE chart's description. Every id resolved,
+        because the wide desc genuinely exists — only a screen reader
+        announces the wrong text.
+        """
+        root = Path(__file__).resolve().parent.parent
+        html = (root / "index.html").read_text(encoding="utf-8")
+        ids = set(re.findall(r'(?<![-\w])id="([^"]+)"', html))
+        for value in re.findall(r'aria-labelledby="([^"]+)"', html):
+            for token in value.split():
+                self.assertIn(token, ids, f'"{token}" resolves to nothing')
+        for stem in ("chart-01", "chart-02"):
+            self.assertIn(
+                f'aria-labelledby="{stem}-title-narrow {stem}-desc-narrow"',
+                html,
+                f"{stem}-narrow does not reference its own desc",
+            )
+
+    def test_every_shaded_band_carries_the_band_class(self):
+        """The print and narrow fill rules select on .band.
+
+        The shaded polygons carried only a fill attribute, so both rules were
+        inert and neither the narrow swap nor the print density ever applied.
+        """
+        root = Path(__file__).resolve().parent.parent
+        html = (root / "index.html").read_text(encoding="utf-8")
+        bands = re.findall(r"<polygon[^>]*>", html)
+        hatched = [b for b in bands if "band-hatch" in b]
+        self.assertEqual(
+            len(hatched),
+            sum(1 for b in hatched if 'class="band"' in b),
+            "a hatched polygon has no .band class, so the stylesheet cannot "
+            "swap its fill for the narrow or print pattern",
+        )
+        self.assertGreater(len(hatched), 0, "no hatched bands found at all")
+
+
+
+class TestFieldWindowParsing(unittest.TestCase):
+    """A wave's fieldwork window must match its own label.
+
+    `docs/standards.md` requires a polling citation to carry the fieldwork
+    window, so a wrong window is a wrong citation on the page. It is also
+    invisible in the chart: the windows are never rendered, and the figures are
+    grouped by year, so no plotted figure moves when a window is wrong.
+
+    This exists because `parse_field_window()` took the leading month name and
+    applied it to every day number on the label. Nine cross-month waves were
+    corrupted, including 'April 25 - May 1, 2022' written as 2022-04-01 to
+    2022-04-25, and nothing failed — because the only file passed to
+    `validate()` was the monthly one, not the discrete series the charts read.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "ingest",
+            Path(__file__).resolve().parent.parent / "tools" / "ingest_roymorgan.py",
+        )
+        cls.ingest = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.ingest)
+
+    def test_single_month_range(self):
+        self.assertEqual(
+            self.ingest.parse_field_window("May 9-15, 2022"),
+            ("2022-05-09", "2022-05-15"),
+        )
+
+    def test_two_weekend_days(self):
+        self.assertEqual(
+            self.ingest.parse_field_window("April 20/21, 2019"),
+            ("2019-04-20", "2019-04-21"),
+        )
+
+    def test_cross_month_uses_the_month_named_before_each_day(self):
+        """The defect. The old parser returned 2022-04-01 to 2022-04-25."""
+        for label, want in (
+            ("April 25 - May 1, 2022", ("2022-04-25", "2022-05-01")),
+            ("March 28 - April 3, 2022", ("2022-03-28", "2022-04-03")),
+            ("February 24 - March 2, 2022", ("2022-02-24", "2022-03-02")),
+            ("January 31 - February 13, 2022", ("2022-01-31", "2022-02-13")),
+            ("May 29/30 & June 5/6, 2021", ("2021-05-29", "2021-06-06")),
+            ("October 30/31 & November 6/7, 2021", ("2021-10-30", "2021-11-07")),
+            ("November 27/28 & December 4/5, 2021", ("2021-11-27", "2021-12-05")),
+            ("July 24/25 & 31/ August 1, 2021", ("2021-07-24", "2021-08-01")),
+            ("February 28/March 1 & 7/8, 2020", ("2020-02-28", "2020-03-08")),
+        ):
+            self.assertEqual(
+                self.ingest.parse_field_window(label), want, f"{label} misparsed"
+            )
+
+    def test_year_boundary_window_keeps_december_in_the_prior_year(self):
+        """'December 30 - January 6, 2021' ends in 2021 and starts in 2020.
+
+        Taking the lowest and highest month *numbers* would invert this,
+        because January is 1 and December is 12. The order the months are named
+        in is the order of the window.
+        """
+        self.assertEqual(
+            self.ingest.parse_field_window("December 30 - January 6, 2021"),
+            ("2020-12-30", "2021-01-06"),
+        )
+
+    def test_year_hint_carries_down_for_a_bare_label(self):
+        self.assertEqual(
+            self.ingest.parse_field_window("May 5-31", 2025),
+            ("2025-05-05", "2025-05-31"),
+        )
+
+    def test_single_day_wave(self):
+        self.assertEqual(
+            self.ingest.parse_field_window("April 27", 2025),
+            ("2025-04-27", "2025-04-27"),
+        )
+
+    def test_no_year_resolves_to_an_empty_window(self):
+        """An undated wave cannot be placed on an axis, so it gets no window."""
+        self.assertEqual(self.ingest.parse_field_window("May 9-15"), ("", ""))
+
+    def test_validator_catches_the_corrupted_windows(self):
+        """The guard must fire on the defect it was written for.
+
+        Asserted on the original corrupted values, not just on good ones: a
+        validator only ever seen passing has not been shown to work.
+        """
+        corrupted = [
+            {"wave_label": "April 25 - May 1, 2022",
+             "fielded_start": "2022-04-01", "fielded_end": "2022-04-25"},
+            {"wave_label": "July 24/25 & 31/ August 1, 2021",
+             "fielded_start": "2021-07-01", "fielded_end": "2021-07-31"},
+            {"wave_label": "February 28/March 1 & 7/8, 2020",
+             "fielded_start": "2020-02-01", "fielded_end": "2020-02-28"},
+        ]
+        problems = self.ingest.window_problems(corrupted, max_days=16)
+        self.assertEqual(len(problems), 3, f"expected 3, got {problems}")
+
+    def test_validator_passes_the_corrected_windows(self):
+        good = [
+            {"wave_label": "April 25 - May 1, 2022",
+             "fielded_start": "2022-04-25", "fielded_end": "2022-05-01"},
+            {"wave_label": "February 28/March 1 & 7/8, 2020",
+             "fielded_start": "2020-02-28", "fielded_end": "2020-03-08"},
+        ]
+        self.assertEqual(self.ingest.window_problems(good, max_days=16), [])
+
+    def test_the_span_cap_is_per_series_not_universal(self):
+        """Monthly waves genuinely span 27 days; fortnightly ones do not.
+
+        One shared cap would either reject real monthly waves or miss corrupted
+        fortnightly ones, so the cap is a parameter and both call sites are
+        asserted here.
+        """
+        monthly = [{"wave_label": "May 5-31",
+                    "fielded_start": "2025-05-05", "fielded_end": "2025-05-31"}]
+        self.assertEqual(self.ingest.window_problems(monthly, max_days=31), [])
+        self.assertTrue(self.ingest.window_problems(monthly, max_days=16))
+
+    def test_ingested_data_has_no_implausible_window(self):
+        """Asserted on the committed file, so a regression cannot ship.
+
+        The chart figures are grouped by year, so a corrupted window would not
+        move a single number on the page and no rendering check could see it.
+        """
+        import csv as _csv
+        from datetime import date as _date
+
+        root = Path(__file__).resolve().parent.parent
+        with (root / "data" / "polls_roymorgan_oned.csv").open(
+            encoding="utf-8", newline=""
+        ) as fh:
+            rows = list(_csv.DictReader(fh))
+        self.assertEqual(
+            self.ingest.window_problems(rows, max_days=16), [],
+            "a wave in the committed discrete series has a fieldwork window "
+            "that contradicts its own label",
+        )
+        for r in rows:
+            d0 = _date.fromisoformat(r["fielded_start"])
+            d1 = _date.fromisoformat(r["fielded_end"])
+            self.assertLessEqual(
+                d0.year, int(r["year"]), f"{r['wave_label']}: start before year"
+            )
+            self.assertLessEqual(
+                int(r["year"]), d1.year, f"{r['wave_label']}: end after year"
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestVariantBreakpoint(unittest.TestCase):
+    """Where the wide chart stops being legible, and the media query that knows it.
+
+    Written because the breakpoint was set from measurements taken at 320, 640
+    and 1280px and never at the breakpoint itself. The wide variant reaches its
+    1:1 scale only at a viewport of 1135px, so a query switching at 1100px left
+    every viewport from 1100 to 1134px showing 16px labels at 15.48px — under
+    the DESIGN.md floor, and invisible to any test that measured at the old
+    three widths.
+    """
+
+    # Chrome reserves this much of the viewport for the scrollbar on macOS. It
+    # is not a CSS value; it was measured (viewport 1135px -> clientWidth
+    # 1120px). A browser that overlays scrollbars would need it re-measured.
+    SCROLLBAR_ALLOWANCE = 15
+
+    ROOT = Path(__file__).resolve().parent.parent
+
+    def setUp(self):
+        self.css = (self.ROOT / "src" / "margin-of-error.css").read_text(encoding="utf-8")
+        self.html = (self.ROOT / "index.html").read_text(encoding="utf-8")
+
+    def token(self, name: str) -> int:
+        m = re.search(rf"{re.escape(name)}:\s*(\d+(?:\.\d+)?)px", self.css)
+        self.assertIsNotNone(m, f"{name} is not defined in the stylesheet")
+        return int(m.group(1))
+
+    def test_track_holds_the_wide_viewbox_exactly(self):
+        """The design identity: 16px in the SVG is 16px on screen at the cap.
+
+        --track-full minus the layout's inline padding must equal the wide
+        viewBox width. If either changes without the other, the wide variant
+        renders at a scale that is not 1.0 and the label floor moves.
+        """
+        track = self.token("--track-full")
+        # padding-inline at the 12-column breakpoint and above.
+        m = re.search(
+            r"@media \(min-width: 640px\) \{\s*\.layout \{[^}]*padding-inline:\s*"
+            r"var\((--[\w-]+)\)",
+            self.css,
+        )
+        self.assertIsNotNone(m, "the layout's padding-inline is not a token")
+        gutter = self.token(m.group(1))
+        wide = max(int(w) for w in re.findall(r'viewBox="0 0 (\d+) \d+"', self.html))
+        self.assertEqual(
+            track - 2 * gutter,
+            wide,
+            f"--track-full ({track}) less two {gutter}px gutters is {track - 2 * gutter}, "
+            f"but the widest viewBox is {wide}; the wide chart cannot reach scale 1.0",
+        )
+
+    def test_breakpoint_is_where_the_wide_variant_reaches_scale_one(self):
+        """The media query must switch at exactly viewport = track + scrollbar."""
+        track = self.token("--track-full")
+        expected = track + self.SCROLLBAR_ALLOWANCE - 1
+        m = re.search(
+            r"@media \(max-width: (\d+)px\) \{\s*figure \.chart-narrow \{\s*display: block",
+            self.css,
+        )
+        self.assertIsNotNone(
+            m, "no media query switches the chart to the narrow variant"
+        )
+        self.assertEqual(
+            int(m.group(1)),
+            expected,
+            f"the narrow variant is shown up to {m.group(1)}px, but the wide variant "
+            f"is legible only from {track + self.SCROLLBAR_ALLOWANCE}px; the range "
+            f"{m.group(1)}-{track + self.SCROLLBAR_ALLOWANCE - 1}px renders labels "
+            "below the 16px floor",
+        )
+
+    def test_floor_is_stated_in_design(self):
+        """The number this test protects must come from the spec, not from here."""
+        design = (self.ROOT / "DESIGN.md").read_text(encoding="utf-8")
+        self.assertRegex(
+            design, r"Never smaller than 16px", "DESIGN.md no longer states the label floor"
+        )
+
+
+class TestPanel2TitlePlacement(unittest.TestCase):
+    """Panel 2's plot must start below its own title, on both viewports.
+
+    Written because the wide variant drew the title *inside* the plot it labels,
+    and its last glyph met the 2022 result marker 0.8px away. The old code
+    solved only the opposite problem (a title too high, overrunning panel 1) and
+    its guard could not fire in the case that needed it. See the 2026-10-18
+    Events entry: the numbers below are measured in a browser, not derived from
+    the source.
+    """
+
+    ROOT = Path(__file__).resolve().parent.parent
+
+    def setUp(self):
+        sys.path.insert(0, str(self.ROOT / "charts"))
+        import chart_01
+        self.mod = chart_01
+
+    def place(self, *, gap_bottom, span_top, n_lines, plot_bottom=330.0):
+        return self.mod.panel2_placement(
+            gap_bottom=gap_bottom, span_top=span_top,
+            span_bottom=span_top + 80, plot_bottom=plot_bottom,
+            n_span_lines=n_lines,
+        )
+
+    def wide(self):
+        # plot Box(top=56, bottom=330), GAP_PANEL_BOTTOM=0.34, SPAN_PANEL_TOP=0.56
+        return self.place(gap_bottom=149.16, span_top=209.44, n_lines=1)
+
+    def narrow(self):
+        # plot Box(top=52, bottom=342), same fractions. Narrow's title wraps to
+        # three lines at a 340-unit plot, which is the case the clamp branch
+        # exists for.
+        return self.place(gap_bottom=150.6, span_top=214.4, n_lines=3, plot_bottom=342.0)
+
+    def test_wide_plot_starts_below_its_own_title(self):
+        baseline, plot_top, _ = self.wide()
+        block_bottom = self.mod.title_block_bottom(baseline, 1)
+        self.assertGreaterEqual(
+            plot_top, block_bottom,
+            "panel 2's plot starts above the bottom of its own title, so the "
+            "title is drawn through the data",
+        )
+        # The defect measured 0.8px between the last glyph and the marker.
+        self.assertGreaterEqual(
+            plot_top - block_bottom, 0, "the title and the plot overlap"
+        )
+
+    def test_narrow_still_clears_panel_one(self):
+        baseline, plot_top, _ = self.narrow()
+        self.assertGreaterEqual(baseline, 150.6 + 64, "narrow's title rose into panel 1")
+        self.assertGreaterEqual(
+            plot_top, self.mod.title_block_bottom(baseline, 3),
+            "the invariant must hold for a three-line title too",
+        )
+        # The numbers the committed narrow SVG actually renders, so a change to
+        # the constants cannot silently move the mobile view.
+        self.assertAlmostEqual(baseline, 214.6, places=1)
+        self.assertAlmostEqual(plot_top, 280.6, places=1)
+
+    def test_two_line_block_measured_from_the_last_baseline(self):
+        """Wrap grows downward from the placement; the old elif used +14 only."""
+        one = self.mod.title_block_bottom(227.16, 1)
+        two = self.mod.title_block_bottom(227.16, 2)
+        self.assertAlmostEqual(two - one, self.mod.TITLE_LEADING, places=9)
+
+    def test_old_guard_could_not_fire_in_the_case_it_needed(self):
+        """Encode the superseded logic and show it violates the invariant.
+
+        Without this the test suite would pass on both the fix and the bug,
+        which is the recurring failure mode in this repo: a guard that points
+        at the wrong reference and stays green on the defect.
+        """
+        gap_bottom, span_top, n = 149.16, 209.44, 1
+        y = max(span_top - 14, gap_bottom + 78) - (n - 1) * 26
+        if y < gap_bottom + 64:      # the only branch the old code had
+            y = gap_bottom + 64
+            old_plot_top = y + 14 + (n - 1) * 26
+        else:
+            old_plot_top = span_top  # ...and this is the branch wide takes
+        self.assertGreater(
+            self.mod.title_block_bottom(y, n), old_plot_top,
+            "the superseded logic no longer leaves the title inside the plot, so "
+            "this test no longer demonstrates the bug it documents"
+        )
+        # ...and the current logic does not.
+        fixed = self.place(gap_bottom=gap_bottom, span_top=span_top, n_lines=n)
+        self.assertLessEqual(
+            self.mod.title_block_bottom(fixed[0], n), fixed[1],
+            "the fix does not satisfy the invariant it was written for"
+        )

@@ -79,8 +79,17 @@
   --color-gain: #0f7b6c;
   --color-loss: #c1443a;
 
-  /* Uncertainty */
+  /* Uncertainty.
+     --band-hatch is declared here, not left to the chart's own fill
+     attribute. DESIGN.md specifies it as url(#hatch-mo), and the charts do
+     carry fill="var(--band-hatch)" — but the token was never defined, so it
+     computed to an empty string and every shaded region rendered with no fill
+     at all. Nine polygons in Chart 02 were invisible, and nothing failed:
+     an SVG fill of "" is not an error, it is simply no paint.
+     Found by measuring the computed fill rather than by reading the SVG,
+     which looks identical either way. */
   --band-fill: rgba(20, 17, 15, 0.07);
+  --band-hatch: url(#hatch-mo);
   --band-edge: var(--color-ink-muted);
 
   /* Spacing, 4px base */
@@ -317,15 +326,40 @@ figcaption {
 
    A chart generator emits a second, narrower SVG for phones, because a 1120px
    chart scaled into a 265px column renders 16px labels at about 3.8px. The
-   wide element is hidden below 640px and the narrow one is hidden above it.
+   wide element is hidden below 1100px and the narrow one is hidden above it.
    The wide variant stays in the accessibility tree at every width, so a screen
-   reader always finds a chart. Breakpoint matches the grid change in DESIGN.md
-   and the width the narrow viewBox was tuned for (see task 0008). */
+   reader always finds a chart. The breakpoint is set by legibility rather than
+   by the grid; see the note at the media query. */
 figure .chart-narrow {
   display: none;
 }
 
-@media (max-width: 639px) {
+/* The wide variant is drawn against a 1072-unit viewBox, equal to the track
+   width at 1280px, so its 16px labels land at exactly 16px there and no
+   smaller. Shown below that, it scales down with the track and the labels go
+   with it: measured at a 577px track it rendered 8.61px, the worst of any
+   width, and under the DESIGN.md floor.
+
+   The narrow variant is drawn against 420 units, so in the same 577px track its
+   labels render at 22.0px and in the 1072px track at 40.8px. Oversized is
+   legible; undersized is not.
+
+   So the switch is where the wide variant stops being legible, not where the
+   grid changes.
+
+   The track reaches its full 1072px only at a viewport of 1135px, because the
+   layout is capped at --track-full and carries inline padding. Sweeping the
+   width one pixel at a time: a 1134px viewport leaves the track at 1071px, so
+   the scale is 0.9991 and the 16px labels render at 15.99px — under the floor.
+   At 1135px the scale is exactly 1.0 and they land on 16.00px.
+
+   The breakpoint was previously 1100px, which left every viewport from 1100 to
+   1134px showing the wide variant at 15.48px to 15.99px. The earlier rule was
+   derived from measurements taken at 320, 640 and 1280px and never at the
+   breakpoint itself, so the gap was invisible. Measured now: 10.10px at 320px,
+   22.0px at 640px, 15.48px at 1100px, 15.99px at 1134px, 16.00px at 1135px,
+   16.00px at 1280px. */
+@media (max-width: 1134px) {
   figure .chart-narrow {
     display: block;
   }
@@ -334,6 +368,48 @@ figure .chart-narrow {
   figure[data-chart] > .chart:not(.chart-narrow) {
     display: none;
   }
+}
+
+/* The narrow variant's pattern ids are suffixed at build time, so its bands
+   have to name the suffixed pattern. --band-hatch is declared once on :root as
+   url(#hatch-mo) and resolves against the wide chart's id in both variants, so
+   the narrow copy referenced an id that does not exist in its own SVG and its
+   shaded regions rendered with no fill at all — at the width most readers see.
+
+   Outside @media print deliberately: this is a screen correction, and the
+   print counterpart lives with the other print hatch rules. */
+.chart-narrow .band {
+  fill: url(#hatch-mo-narrow);
+}
+
+/* ---------- Draft banner ---------- */
+
+/* Only ever present on a `--draft` artefact, which is a page built while a
+   publication gate is red. It exists so the committed page can stay current
+   with its sources without ever being mistakable for something shippable.
+   Tokens only, so it cannot trip the raw-hex rule it sits inside. */
+.draft-banner {
+  border-block: 2px solid var(--color-loss);
+  background: var(--color-paper-raised);
+  color: var(--color-ink);
+  padding-block: 12px;
+  /* Same inline padding as .layout, so the notice lines up with the page. */
+  padding-inline: var(--space-5);
+  margin: 0;
+  font-family: var(--face-body);
+}
+
+/* The strip is full-bleed, like any site-wide notice, but the copy is not: an
+   unconstrained line ran to 2293px, which no one reads. Same measure as the
+   prose. */
+.draft-banner p {
+  margin: 0 auto;
+  max-width: var(--measure);
+}
+
+.draft-banner p + p {
+  margin-top: 6px;
+  color: var(--color-ink-muted);
 }
 
 /* ---------- Focus ---------- */
@@ -409,6 +485,20 @@ figure .chart-narrow {
      needs the matching reference or the band falls back to no fill at all. */
   .chart-narrow .band {
     fill: url(#hatch-mo-print-narrow);
+  }
+
+  /* Same problem on screen, and it is worse than the print case because this
+     is the width most readers see. --band-hatch is declared once on :root as
+     url(#hatch-mo), so it resolves against the WIDE chart's pattern id in both
+     variants. The narrow copy's pattern is #hatch-mo-narrow, so its nine
+     shaded regions referenced an id that does not exist in its own SVG and
+     rendered with no fill at all.
+
+     The token cannot be redefined per variant, because a CSS custom property
+     on the page has no notion of which inline SVG it is being resolved
+     against. The reference has to be set per variant instead. */
+  .chart-narrow .band {
+    fill: url(#hatch-mo-narrow);
   }
 
   /* On paper the interval boundary carries the meaning, not the tint, so the
