@@ -174,6 +174,20 @@ verifiable CDN with an integrity hash recorded in `docs/data-sources.md`.
   had never executed, because neither had CI: the workflow was never on
   `origin/main`. Put the checks that must produce signal *before* the known-red
   gate, and fold drift into `--check` so step ordering cannot hide it.
+- **Validate the file that ships, not the file that is convenient.** Discovered
+  2026-10-18: `tools/ingest_roymorgan.py` ran `validate()` over the monthly table
+  only, never over `polls_roymorgan_oned.csv` — the file every chart figure is
+  computed from. Nine cross-month waves had been written with a corrupted
+  fieldwork window ('April 25 - May 1, 2022' became 2022-04-01 to 2022-04-25)
+  because `parse_field_window()` applied the label's leading month to every day
+  number. Nothing failed, because the one file with a guard could not contain the
+  defect and the one file with the defect had no guard.
+- **A figure nothing renders cannot be caught by a rendering check.** The same
+  nine windows were invisible in the charts: the windows are never drawn and the
+  figures are grouped by year, so not one plotted number moved. A wrong fieldwork
+  window is still a wrong citation, because `docs/standards.md` requires the
+  window in every polling citation. Check the data against its own labels; do not
+  rely on the artefact to reveal it.
 - **Registry families must be resolvable ids.** A `source_id:` line carrying a
   trailing parenthetical does not match the parser at all, so the family
   registered nothing and seven of nine AEC elections were unciteable. List a

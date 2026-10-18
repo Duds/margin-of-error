@@ -266,6 +266,69 @@ finding:          150 seats in 2001, 2004, 2007, 2010, 2013 and 2016;
   predicted by primary vote alone. Requires confirmation that the same
   conversion pattern holds at scale before it can be a finding.
 
+- 2026-10-18 — **Reproduction and release-text cross-check of the polling
+  source.** The live page was re-fetched (653,602 bytes, 3 tables) and
+  `tools/ingest_roymorgan.py` re-run against it. All three output files
+  reproduce **byte-identically** apart from the `retrieved` date, so the
+  ingestion is reproducible from the source rather than a one-time transcription.
+
+  **What the release text can and cannot verify.** The page links exactly one
+  release: `roymorgan.com/findings/9877-federal-voting-intention-april-28-2025`.
+  Its narrative reads "support for One Nation increased 1.5% to 7.5%", and the
+  April 27 wave's **combined** column reads 18.5 with the footnote the release
+  itself supplies — "This includes support for One Nation (highlighted in the
+  release) of 7.5%". So the release confirms the 7.5 figure that the monthly
+  table does **not** carry as a discrete column. **No row in
+  `data/polls_roymorgan_oned.csv` is checkable against it:** the discrete series
+  stops in 2022, and the April 27 row has `pvi_oned` empty by construction.
+
+  That distinction is the whole point of the ingest's column trap, and stating
+  the check loosely here would have been the trap: 18.5 is not One Nation, it is
+  the aggregate One Nation sits inside. The release corroborates the publisher's
+  own footnote, not a plotted figure.
+
+  **The 2018-2022 waves cannot be cross-checked this way, and that is recorded
+  rather than papered over.** The page links one release. Older release IDs do
+  not resolve — `/findings/9216-…` and four probes across the 9050-9250 range all
+  returned 404 — and the findings index lists only the current wave. The Internet
+  Archive's CDX index does surface 2018-2022 releases, but Roy Morgan published
+  them **monthly** while the discrete polling table is **fortnightly**, so a
+  release reports a different survey window from the row beside it. The mid-June
+  2022 release states "Support for One Nation was up 0.5% points to 4%", which is
+  consistent with the 4.0 in the two May 2022 rows, and the discrete table has no
+  June 2022 row at all to check it against. **A wave-level cross-check of
+  2018-2022 would need an archived release for each fortnight, which does not
+  exist as a fortnightly publication.** The verification that was possible was
+  done; the one `TASKS.md` 0004 asked for is not achievable against this source,
+  and the limit is a property of the evidence rather than a step left undone.
+
+  **What was verified instead, and what it is worth.** The stronger check is the
+  one already in place: the AEC's own record agrees with Roy Morgan's
+  election-time figures to within 0.04 points at all nine elections, which tests
+  the publisher's numbers against a primary source rather than against its own
+  prose. Reproducibility is also established — re-running the ingest on a fresh
+  fetch returns byte-identical data.
+
+  **A data defect found by doing this check.** `parse_field_window()` took the
+  leading month name and applied it to every day number on the label, which
+  silently corrupted the fieldwork window of **nine cross-month waves**:
+  'April 25 - May 1, 2022' was written as 2022-04-01 to 2022-04-25, a 25-day
+  window starting three weeks early, and 'July 24/25 & 31/ August 1, 2021'
+  became 2021-07-01 to 2021-07-31. `docs/standards.md` requires a polling
+  citation to carry the fieldwork window, so this is a wrong citation, not a
+  cosmetic one. It was invisible because the windows are never rendered and the
+  chart figures are grouped by year — **no figure on the page changed.** Fixed
+  by walking the label left to right and binding each day to the month named
+  before it, with a year-boundary case for 'December 30 - January 6'.
+
+  **Why nothing caught it: only the monthly file was validated.** The discrete
+  One Nation series, which is the file every chart figure is computed from, was
+  never passed to `validate()`. `window_problems()` now checks both files, with
+  the span cap passed per series because the cadences genuinely differ — the
+  discrete waves span 2 to 14 days and the monthly waves 1 to 27. Verified to
+  fire on all three original corrupted windows and to stay silent on the
+  corrected ones and on a legitimate 27-day monthly wave.
+
 ## Task 0004 — polling source assessment
 
 Attempted 2026-10-03. **Blocking finding: the schema cannot be filled from
@@ -284,7 +347,7 @@ title:            Federal Voting - Primary Voting Intention (%), with
 publisher:        Roy Morgan Research
 tier:             B
 cross_check_only: yes
-retrieved:        2026-10-03
+retrieved:        2026-10-03, re-fetched and reproduced 2026-10-18
 url:              https://www.roymorgan.com/morgan-poll/primary-voting-intention/
 covers:           national primary vote intention, monthly, 2013 to 2025
 caveats:          **cross_check_only: yes.** A source of record for published

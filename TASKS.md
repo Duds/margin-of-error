@@ -151,11 +151,13 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   > "1996 to 2025, ten general elections" is unsourceable as written. The series
   > is nine.
 - **0004 — Establish the polling dataset** — fieldwork dates, house, n, margin.
-  > **INGEST BUILT 2026-10-04. The structural blocker stands.**
+  > **INGEST BUILT 2026-10-04, REPRODUCED AND CORRECTED 2026-10-18. The
+  > structural blocker stands: no margin, no n, no publication date.**
   > `tools/ingest_roymorgan.py` reads the Roy Morgan PVI page and writes
-  > `data/polls_roymorgan.csv` (138 waves) and
-  > `data/roymorgan_election_results.csv` (10 elections). Both are reproducible
-  > from a saved page. **No sample size, no margin of error and no publication
+  > `data/polls_roymorgan.csv` (138 waves), `data/polls_roymorgan_oned.csv`
+  > (48 discrete waves, the file every chart figure is computed from) and
+  > `data/roymorgan_election_results.csv` (10 elections). All three reproduce
+  > byte-identically from a fresh fetch of the live page, verified 2026-10-18. **No sample size, no margin of error and no publication
   > date exist to ingest** — re-verified on the live page by string search for
   > `sample size`, `margin of error`, `margin of sampling error`, `interviewed`,
   > `confidence interval`, `plus or minus` and `+/-`: zero matches. Those fields
@@ -198,11 +200,34 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   > size, no publication date.** So the series cannot carry a band. It CAN carry
   > polling-against-result over 2018-2022 with an honest "no published margin"
   > marker, which is what non-negotiable 5 as amended now requires.
-  > **Next: extend the ingest to read that table, verify the 2017 gap is real
-  > and not a parsing artefact, and confirm the 2018-2022 figures against the
-  > release text for a sample of waves before any of it is plotted.**
-  > Next: register the dataset in `docs/data-sources.md` and decide the chart
-  > form before building anything on top of it.
+  > **The first two items of that `Next:` are DONE; the third is not achievable
+  > and the limit is now recorded rather than left as a task.**
+  > - *Extend the ingest to read that table* — done 2026-10-04:
+  >   `ingest_discrete_oned()` writes `data/polls_roymorgan_oned.csv`, 48 waves.
+  > - *Verify the 2017 gap is real* — done 2026-10-04, and re-verified
+  >   2026-10-18 against a fresh fetch: the string "2017" does not appear in the
+  >   table, and the ingest reproduces byte-identically from the live page.
+  > - *Confirm the figures against the release text* — **not possible at wave
+  >   level.** The page links exactly one release (April 2025), whose narrative
+  >   confirms only the 7.5% figure inside the monthly table's 18.5% aggregate —
+  >   a value the discrete file correctly does not carry. Roy Morgan published
+  >   **monthly** while the discrete table is **fortnightly**, so no archived
+  >   release matches a 2018-2022 wave's survey window. Full record in
+  >   `docs/data-sources.md` under the 2026-10-18 retrieval entry.
+  >   What replaced it: the AEC's own record agrees with Roy Morgan's
+  >   election-time figures to within 0.04 points at all nine elections, which
+  >   tests the publisher against a primary source rather than against its prose.
+  > - *Register the dataset and decide the chart form* — done 2026-10-05/06.
+  > **A data defect found while doing this.** `parse_field_window()` applied the
+  > label's leading month to every day number, corrupting the fieldwork window of
+  > nine cross-month waves — 'April 25 - May 1, 2022' was written as 2022-04-01 to
+  > 2022-04-25. `docs/standards.md` requires the fieldwork window in a polling
+  > citation, so this is a wrong citation, not a cosmetic one. **No figure on the
+  > page moved**, because the windows are never rendered and the figures are
+  > grouped by year, which is why it survived: the discrete series, the file every
+  > chart reads, was never passed to `validate()`. Fixed, both files now validated
+  > with a per-series span cap (discrete 2-14 days, monthly 1-27), 11 regression
+  > tests added. Suite 165 -> 176.
 - **0005 — Right of reply** — send the draft thesis and named claims.
   > Blocking publication, not blocking development. Send before the copy is
   > final, so a substantive response can shape the framing.
@@ -1275,3 +1300,51 @@ Append-only. Newest last.
   columns it found.
 
   Suite 161 -> 165. The gate-red test class was inverted, not deleted.
+
+- 2026-10-18 — **Task 0004's release-text cross-check: done as far as the source
+  allows, and the limit is now a recorded fact rather than an open task.** The
+  live Roy Morgan page was re-fetched and the ingest re-run against it. All three
+  output files reproduce **byte-identically** apart from the retrieval date, so
+  the series is reproducible from the source rather than a one-time transcription.
+
+  The page links exactly one release, April 2025, and its narrative — "support
+  for One Nation increased 1.5% to 7.5%" — confirms only the 7.5% sitting inside
+  the monthly table's 18.5% aggregate. **That is not a discrete figure and the
+  ingest correctly refuses to write it as one.** Stating the check loosely would
+  have been the aggregate trap `AGENTS.md` names. Roy Morgan published monthly;
+  the discrete table is fortnightly; so no archived release matches a 2018-2022
+  wave's survey window. Older release IDs 404, and the findings index lists only
+  the current wave. **A wave-level cross-check against this publisher's own
+  release text is not achievable.** What stands in its place is stronger: the
+  AEC's record agrees with Roy Morgan's election figures to within 0.04 points at
+  all nine elections, which tests the publisher against a primary source instead
+  of against its own prose.
+
+  **Doing the check found a data defect that nine months of charts had not.**
+  `parse_field_window()` took the label's leading month name and applied it to
+  every day number, corrupting the fieldwork window of **nine cross-month
+  waves**: 'April 25 - May 1, 2022' was written as 2022-04-01 to 2022-04-25, a
+  25-day window starting three weeks early, and 'July 24/25 & 31/ August 1, 2021'
+  became 2021-07-01 to 2021-07-31. `docs/standards.md` requires a polling
+  citation to carry the fieldwork window, so this is a wrong citation, not a
+  cosmetic one.
+
+  **It survived because no figure on the page depends on it.** The windows are
+  never rendered, and the chart figures are grouped by year, so not one plotted
+  number moved. The deeper cause: **only the monthly file was ever passed to
+  `validate()`.** The discrete One Nation series — the file every chart figure is
+  computed from — had no guard at all, and the monthly labels are single-month,
+  so the one file that was checked could not contain the defect. Fixed by walking
+  each label left to right and binding every day to the month named before it,
+  with a year-boundary case for 'December 30 - January 6'.
+
+  `window_problems()` now checks **both** files, with the span cap passed per
+  series because the cadences genuinely differ: discrete waves span 2 to 14 days,
+  monthly waves 1 to 27. One shared cap would either reject real monthly waves or
+  miss corrupted fortnightly ones — which is the same mistake as assuming one
+  chamber size for nine elections. Verified to fire on all three original
+  corrupted windows, to pass the corrected ones, and to pass a legitimate 27-day
+  monthly wave at its own cap. 11 regression tests added, including one asserting
+  the committed file itself has no implausible window.
+
+  Suite 165 -> 176. `tools/build.py --check` exits 0.

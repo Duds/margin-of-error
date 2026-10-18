@@ -2147,5 +2147,157 @@ class TestDraftArtefact(unittest.TestCase):
         self.assertGreater(len(hatched), 0, "no hatched bands found at all")
 
 
+
+class TestFieldWindowParsing(unittest.TestCase):
+    """A wave's fieldwork window must match its own label.
+
+    `docs/standards.md` requires a polling citation to carry the fieldwork
+    window, so a wrong window is a wrong citation on the page. It is also
+    invisible in the chart: the windows are never rendered, and the figures are
+    grouped by year, so no plotted figure moves when a window is wrong.
+
+    This exists because `parse_field_window()` took the leading month name and
+    applied it to every day number on the label. Nine cross-month waves were
+    corrupted, including 'April 25 - May 1, 2022' written as 2022-04-01 to
+    2022-04-25, and nothing failed — because the only file passed to
+    `validate()` was the monthly one, not the discrete series the charts read.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "ingest",
+            Path(__file__).resolve().parent.parent / "tools" / "ingest_roymorgan.py",
+        )
+        cls.ingest = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.ingest)
+
+    def test_single_month_range(self):
+        self.assertEqual(
+            self.ingest.parse_field_window("May 9-15, 2022"),
+            ("2022-05-09", "2022-05-15"),
+        )
+
+    def test_two_weekend_days(self):
+        self.assertEqual(
+            self.ingest.parse_field_window("April 20/21, 2019"),
+            ("2019-04-20", "2019-04-21"),
+        )
+
+    def test_cross_month_uses_the_month_named_before_each_day(self):
+        """The defect. The old parser returned 2022-04-01 to 2022-04-25."""
+        for label, want in (
+            ("April 25 - May 1, 2022", ("2022-04-25", "2022-05-01")),
+            ("March 28 - April 3, 2022", ("2022-03-28", "2022-04-03")),
+            ("February 24 - March 2, 2022", ("2022-02-24", "2022-03-02")),
+            ("January 31 - February 13, 2022", ("2022-01-31", "2022-02-13")),
+            ("May 29/30 & June 5/6, 2021", ("2021-05-29", "2021-06-06")),
+            ("October 30/31 & November 6/7, 2021", ("2021-10-30", "2021-11-07")),
+            ("November 27/28 & December 4/5, 2021", ("2021-11-27", "2021-12-05")),
+            ("July 24/25 & 31/ August 1, 2021", ("2021-07-24", "2021-08-01")),
+            ("February 28/March 1 & 7/8, 2020", ("2020-02-28", "2020-03-08")),
+        ):
+            self.assertEqual(
+                self.ingest.parse_field_window(label), want, f"{label} misparsed"
+            )
+
+    def test_year_boundary_window_keeps_december_in_the_prior_year(self):
+        """'December 30 - January 6, 2021' ends in 2021 and starts in 2020.
+
+        Taking the lowest and highest month *numbers* would invert this,
+        because January is 1 and December is 12. The order the months are named
+        in is the order of the window.
+        """
+        self.assertEqual(
+            self.ingest.parse_field_window("December 30 - January 6, 2021"),
+            ("2020-12-30", "2021-01-06"),
+        )
+
+    def test_year_hint_carries_down_for_a_bare_label(self):
+        self.assertEqual(
+            self.ingest.parse_field_window("May 5-31", 2025),
+            ("2025-05-05", "2025-05-31"),
+        )
+
+    def test_single_day_wave(self):
+        self.assertEqual(
+            self.ingest.parse_field_window("April 27", 2025),
+            ("2025-04-27", "2025-04-27"),
+        )
+
+    def test_no_year_resolves_to_an_empty_window(self):
+        """An undated wave cannot be placed on an axis, so it gets no window."""
+        self.assertEqual(self.ingest.parse_field_window("May 9-15"), ("", ""))
+
+    def test_validator_catches_the_corrupted_windows(self):
+        """The guard must fire on the defect it was written for.
+
+        Asserted on the original corrupted values, not just on good ones: a
+        validator only ever seen passing has not been shown to work.
+        """
+        corrupted = [
+            {"wave_label": "April 25 - May 1, 2022",
+             "fielded_start": "2022-04-01", "fielded_end": "2022-04-25"},
+            {"wave_label": "July 24/25 & 31/ August 1, 2021",
+             "fielded_start": "2021-07-01", "fielded_end": "2021-07-31"},
+            {"wave_label": "February 28/March 1 & 7/8, 2020",
+             "fielded_start": "2020-02-01", "fielded_end": "2020-02-28"},
+        ]
+        problems = self.ingest.window_problems(corrupted, max_days=16)
+        self.assertEqual(len(problems), 3, f"expected 3, got {problems}")
+
+    def test_validator_passes_the_corrected_windows(self):
+        good = [
+            {"wave_label": "April 25 - May 1, 2022",
+             "fielded_start": "2022-04-25", "fielded_end": "2022-05-01"},
+            {"wave_label": "February 28/March 1 & 7/8, 2020",
+             "fielded_start": "2020-02-28", "fielded_end": "2020-03-08"},
+        ]
+        self.assertEqual(self.ingest.window_problems(good, max_days=16), [])
+
+    def test_the_span_cap_is_per_series_not_universal(self):
+        """Monthly waves genuinely span 27 days; fortnightly ones do not.
+
+        One shared cap would either reject real monthly waves or miss corrupted
+        fortnightly ones, so the cap is a parameter and both call sites are
+        asserted here.
+        """
+        monthly = [{"wave_label": "May 5-31",
+                    "fielded_start": "2025-05-05", "fielded_end": "2025-05-31"}]
+        self.assertEqual(self.ingest.window_problems(monthly, max_days=31), [])
+        self.assertTrue(self.ingest.window_problems(monthly, max_days=16))
+
+    def test_ingested_data_has_no_implausible_window(self):
+        """Asserted on the committed file, so a regression cannot ship.
+
+        The chart figures are grouped by year, so a corrupted window would not
+        move a single number on the page and no rendering check could see it.
+        """
+        import csv as _csv
+        from datetime import date as _date
+
+        root = Path(__file__).resolve().parent.parent
+        with (root / "data" / "polls_roymorgan_oned.csv").open(
+            encoding="utf-8", newline=""
+        ) as fh:
+            rows = list(_csv.DictReader(fh))
+        self.assertEqual(
+            self.ingest.window_problems(rows, max_days=16), [],
+            "a wave in the committed discrete series has a fieldwork window "
+            "that contradicts its own label",
+        )
+        for r in rows:
+            d0 = _date.fromisoformat(r["fielded_start"])
+            d1 = _date.fromisoformat(r["fielded_end"])
+            self.assertLessEqual(
+                d0.year, int(r["year"]), f"{r['wave_label']}: start before year"
+            )
+            self.assertLessEqual(
+                int(r["year"]), d1.year, f"{r['wave_label']}: end after year"
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
