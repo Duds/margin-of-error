@@ -165,6 +165,7 @@ def gap_scale(plot: Box, values: list[float], span: float) -> Scale:
 # Panel 2's title is placed against two different neighbours, and only solving
 # one of them produced two rounds of the same bug.
 PANEL1_CAPTION_CLEARANCE = 78   # below panel 1's axis, above panel 2's plot
+PANEL1_CAPTION_FLOOR = 64       # never place the title closer than this
 TITLE_DESCENT = 14              # box an 18px baseline carries beneath it
 TITLE_LEADING = 26              # step between wrapped title lines
 
@@ -187,7 +188,8 @@ def panel2_placement(
     Two crowding problems point in opposite directions:
 
     * The title can sit too *high*, overrun panel 1's captions, and be drawn
-      through them. That is the narrow variant, whose title wraps to two lines.
+      through them. That is the narrow variant, whose title wraps to three lines
+      at a 340-unit plot.
     * The title can sit too *low*, inside panel 2's own plot area, and be drawn
       through the data. That is the wide variant.
 
@@ -207,8 +209,8 @@ def panel2_placement(
     # Extra lines grow upward from the placement, so the first line lifts.
     title_y -= (n_span_lines - 1) * TITLE_LEADING
 
-    if title_y < gap_bottom + 64:
-        title_y = gap_bottom + 64
+    if title_y < gap_bottom + PANEL1_CAPTION_FLOOR:
+        title_y = gap_bottom + PANEL1_CAPTION_FLOOR
         return title_y, title_block_bottom(title_y, n_span_lines), plot_bottom
     block_bottom = title_block_bottom(title_y, n_span_lines)
     if block_bottom > span_top:
