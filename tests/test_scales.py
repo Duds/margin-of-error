@@ -2380,3 +2380,96 @@ class TestVariantBreakpoint(unittest.TestCase):
         self.assertRegex(
             design, r"Never smaller than 16px", "DESIGN.md no longer states the label floor"
         )
+
+
+class TestPanel2TitlePlacement(unittest.TestCase):
+    """Panel 2's plot must start below its own title, on both viewports.
+
+    Written because the wide variant drew the title *inside* the plot it labels,
+    and its last glyph met the 2022 result marker 0.8px away. The old code
+    solved only the opposite problem (a title too high, overrunning panel 1) and
+    its guard could not fire in the case that needed it. See the 2026-10-18
+    Events entry: the numbers below are measured in a browser, not derived from
+    the source.
+    """
+
+    ROOT = Path(__file__).resolve().parent.parent
+
+    def setUp(self):
+        sys.path.insert(0, str(self.ROOT / "charts"))
+        import chart_01
+        self.mod = chart_01
+
+    def place(self, *, gap_bottom, span_top, n_lines, plot_bottom=330.0):
+        return self.mod.panel2_placement(
+            gap_bottom=gap_bottom, span_top=span_top,
+            span_bottom=span_top + 80, plot_bottom=plot_bottom,
+            n_span_lines=n_lines,
+        )
+
+    def wide(self):
+        # plot Box(top=56, bottom=330), GAP_PANEL_BOTTOM=0.34, SPAN_PANEL_TOP=0.56
+        return self.place(gap_bottom=149.16, span_top=209.44, n_lines=1)
+
+    def narrow(self):
+        # plot Box(top=52, bottom=342), same fractions. Narrow's title wraps to
+        # three lines at a 340-unit plot, which is the case the clamp branch
+        # exists for.
+        return self.place(gap_bottom=150.6, span_top=214.4, n_lines=3, plot_bottom=342.0)
+
+    def test_wide_plot_starts_below_its_own_title(self):
+        baseline, plot_top, _ = self.wide()
+        block_bottom = self.mod.title_block_bottom(baseline, 1)
+        self.assertGreaterEqual(
+            plot_top, block_bottom,
+            "panel 2's plot starts above the bottom of its own title, so the "
+            "title is drawn through the data",
+        )
+        # The defect measured 0.8px between the last glyph and the marker.
+        self.assertGreaterEqual(
+            plot_top - block_bottom, 0, "the title and the plot overlap"
+        )
+
+    def test_narrow_still_clears_panel_one(self):
+        baseline, plot_top, _ = self.narrow()
+        self.assertGreaterEqual(baseline, 150.6 + 64, "narrow's title rose into panel 1")
+        self.assertGreaterEqual(
+            plot_top, self.mod.title_block_bottom(baseline, 3),
+            "the invariant must hold for a three-line title too",
+        )
+        # The numbers the committed narrow SVG actually renders, so a change to
+        # the constants cannot silently move the mobile view.
+        self.assertAlmostEqual(baseline, 214.6, places=1)
+        self.assertAlmostEqual(plot_top, 280.6, places=1)
+
+    def test_two_line_block_measured_from_the_last_baseline(self):
+        """Wrap grows downward from the placement; the old elif used +14 only."""
+        one = self.mod.title_block_bottom(227.16, 1)
+        two = self.mod.title_block_bottom(227.16, 2)
+        self.assertAlmostEqual(two - one, self.mod.TITLE_LEADING, places=9)
+
+    def test_old_guard_could_not_fire_in_the_case_it_needed(self):
+        """Encode the superseded logic and show it violates the invariant.
+
+        Without this the test suite would pass on both the fix and the bug,
+        which is the recurring failure mode in this repo: a guard that points
+        at the wrong reference and stays green on the defect.
+        """
+        gap_bottom, span_top, n = 149.16, 209.44, 1
+        y = max(span_top - 14, gap_bottom + 78) - (n - 1) * 26
+        if y < gap_bottom + 64:      # the only branch the old code had
+            y = gap_bottom + 64
+            old_plot_top = y + 14 + (n - 1) * 26
+        else:
+            old_plot_top = span_top  # ...and this is the branch wide takes
+        self.assertGreater(
+            self.mod.title_block_bottom(y, n), old_plot_top,
+            "the superseded logic no longer leaves the title inside the plot, so "
+            "this test no longer demonstrates the bug it documents"
+        )
+        # ...and the current logic does not.
+        fixed = self.place(gap_bottom=gap_bottom, span_top=span_top, n_lines=n)
+        self.assertLessEqual(
+            self.mod.title_block_bottom(fixed[0], n), fixed[1],
+            "the fix does not satisfy the invariant it was written for"
+        )

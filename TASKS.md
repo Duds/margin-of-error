@@ -449,42 +449,36 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
 
 ## BACKLOG
 
-- **Chart 01 panel-2 title collides with the 2022 result marker (wide only).**
-  Found 2026-10-18 by eye on the recaptured 1280px screenshot, after the
-  breakpoint work. `verify.mjs` reports `overlap=0` because it only checks
-  text-against-text; this is text-against-line, which no check covers.
-  > **Measured in the browser with `getBBox`, not inferred from the source**,
-  > because the first version of this note recorded the wrong numbers after
-  > quoting a stale code comment. Panel 1's year labels occupy y 166.2-188.2.
-  > Panel 2's title occupies y 209.2-232.2 and runs from x=104 to x=795.2. The
-  > 2022 result cap bar spans x 796-822 at y=223.7, which is inside the title's
-  > vertical band, and clears its last glyph by **0.8px**. Sub-pixel is not the
-  > same as clear: at 1:1 the two read as one mark, and "gave" looks struck
-  > through.
-  > **The cause is a guard that cannot fire, not a bad constant.** With
-  > `plot.top=56`, `box_h=274`, `GAP_PANEL_BOTTOM=0.34` and
-  > `SPAN_PANEL_TOP=0.56`: `gap_bottom` is 149.16 and `span_top` is 209.44.
-  > `span_title_y` takes `max(span_top - 14, gap_bottom + 78)` =
-  > max(195.44, **227.16**) = 227.16, so the title is placed by panel 1's
-  > clearance, not by panel 2's top. The branch that would lower `span_top` to
-  > make room is `if span_title_y < gap_bottom + 64`, i.e. `227.16 < 213.16`,
-  > which is **false** — and false precisely when the title has been pushed
-  > furthest down, which is the only case that needs the room. So the title
-  > lands 17.8 units below `span_top`, inside its own plot, and the marker is in
-  > it. The guard's direction is the bug; changing a number cannot fix it.
-  > `chart_01.py` records this placement being wrong in "the first two passes",
-  > so a third tweak of the same constants is not the answer.
-  > Three real options, each a decision: (a) make the guard's condition about
-  > `span_top` rather than about `gap_bottom`, so the plot always starts below
-  > its own title — geometry, and the likely right fix; (b) shorten the title so
-  > its last glyph clears x=796 — editorial, and still leaves the title inside
-  > the plot; (c) move panel 1's value labels above its bars, freeing the row —
-  > changes how panel 1 reads. Recommend deciding with the chart in front of
-  > you, then adding a text-against-line check to `verify.mjs`, because the
-  > collision is invisible to every check that exists today.
-  Not caused by this PR's breakpoint change: the screenshots are byte-identical
-  before and after it, and the collision is in the committed chart SVG already
-  on `main` since `d5bf306`.
+- ~~**Chart 01 panel-2 title collides with the 2022 result marker (wide only).**~~
+  **FIXED 2026-10-18** — see the Events entry of that date for the derivation
+  and the tests. Kept here, struck through, because the *diagnosis* below is the
+  reusable part: it is a worked example of a guard that points at the wrong
+  reference, which is this repo's most common defect class.
+  > Found by eye on the recaptured 1280px screenshot, after the breakpoint work.
+  > `verify.mjs` reported `overlap=0` because it only checks text-against-text;
+  > this is text-against-line, which no check covered. Measured in the browser
+  > with `getBBox`: panel 1's year labels occupy y 166.2-188.2; panel 2's title
+  > occupied y 209.2-232.2 and ran from x=104 to x=795.2; the 2022 result cap bar
+  > spanned x 796-822 at y=223.7, clearing the title's last glyph by **0.8px**.
+  > Sub-pixel is not the same as clear: at 1:1 the two read as one mark.
+  > **The cause was a guard that could not fire, not a bad constant.** With
+  > `plot.top=56`, `box_h=274`, `GAP_PANEL_BOTTOM=0.34`, `SPAN_PANEL_TOP=0.56`:
+  > `gap_bottom` is 149.16 and `span_top` is 209.44. `span_title_y` took
+  > `max(span_top - 14, gap_bottom + 78)` = max(195.44, **227.16**) = 227.16, so
+  > the title was placed by panel 1's clearance, not by panel 2's top. The branch
+  > that would lower `span_top` tested `span_title_y < gap_bottom + 64`, i.e.
+  > `227.16 < 213.16` — **false precisely when the title had been pushed furthest
+  > down**, the only case needing the room. The guard's *direction* was the bug;
+  > no value of any constant fixes a test that cannot fire.
+  > A second latent flaw surfaced while extracting it: the branch used
+  > `span_title_y + 14` for a title that can wrap to two lines, so a wrapped
+  > title would have been measured from its first baseline, not its last. The
+  > fix measures the block bottom explicitly.
+  > Resolved as option (a) from the three considered: the plot now always starts
+  > at or below the bottom of its own title. Narrow is byte-identical, which is
+  > the point — the narrow case was already correct and is handled by the other
+  > branch.
+
 
 
 - **Corrections policy page** — `docs/corrections.md` exists as an internal
@@ -1447,3 +1441,60 @@ Append-only. Newest last.
   branch testing `227.16 < 213.16` is false exactly when the room is needed), and
   the root cause named: the guard's condition points at `gap_bottom` when it
   needs to point at `span_top`. Option (a) is now stated as the likely fix.
+
+- 2026-10-18 — **Fixed the Chart 01 title collision, and the fix found a second
+  latent flaw in the same three lines.** The BACKLOG entry below records the
+  diagnosis; this records what changing it turned up.
+
+  **The guard's direction was the bug, not its value.** Panel 2's plot was
+  lowered to make room for its title only when `span_title_y < gap_bottom + 64`.
+  On the wide variant the title sits at 227.16 and that bound is 213.16, so the
+  branch never ran — and it is false *exactly* when clearing panel 1 pushed the
+  title furthest down, which is the only situation that needs the room. Every
+  constant in the expression was reasonable; the comparison tested the wrong
+  neighbour. This is the same class as the provenance gate that used a raw
+  substring where the registry needed parsing, and the drift check ordered behind
+  a step that fails by design.
+
+  **Extracting it to test the invariant surfaced a second bug.** The new branch
+  first read `span_title_y + 14`, which measures a *one-line* title's descent.
+  The title wraps to three lines on narrow, so a wrapped title would be measured
+  from its first baseline rather than its last — the same category of error as
+  the original, in the code written to fix it. Replaced with an explicit
+  `title_block_bottom(baseline, n_lines)`, and the narrow fixture corrected from
+  two lines to the three it actually renders.
+
+  **Resolved as the geometry option, not the editorial one.** Of the three
+  choices recorded in the BACKLOG entry, (a) — make the plot start below its own
+  title — was correct because it fixes the invariant rather than the symptom:
+  shortening the title would still leave it drawn inside the plot, and any longer
+  title reintroduces the clash.
+
+  **Narrow is byte-identical, which was the requirement.** The two branches serve
+  different viewports: narrow needed the clamp that already worked, wide needed
+  the guard that could not fire. Proven by `git diff` on `chart-01-narrow.svg`
+  rather than by argument, and pinned by asserting the exact values the committed
+  narrow SVG renders (baseline 214.6, plot top 280.6), so changing a constant
+  cannot silently move the mobile view.
+
+  **Four tests added, and the two that matter were falsified in memory** by
+  monkeypatching the superseded logic back in: `test_wide_plot_starts_below_its_
+  own_title` fails with "209.44 not greater than or equal to 241.16", and
+  `test_old_guard_could_not_fire_in_the_case_it_needed` fails its second half.
+  Narrow's tests pass either way, correctly, because narrow was never broken.
+  Done in-process because copying the repo to `/tmp` to mutate it needs approval
+  that isn't grantable mid-run — a scratch copy is the habit to avoid anyway,
+  having once reverted uncommitted work with a `git checkout -- .` inside one.
+
+  `tools/verify.mjs` now reports the closest label-to-mark gap per chart as a
+  **diagnostic, not a gate**. An earlier version failed on any gap under 2 units
+  and produced 40+ problems, because a series label pointing at its own data
+  point sits at gap 0 by design. A threshold tuned until today's output passes is
+  today's output encoded, not a property asserted — so it reports the number and
+  the label carrying it, and a human reads it. Chart 01's title gap went 0.0 ->
+  22.1px.
+
+  Suite 179 -> **183 tests, OK**. `tools/build.py --check` exits 0. Browser sweep
+  passes every hard invariant at all nine widths. Exactly one screenshot changed
+  (`chart-01-1280px.png`); the other five are byte-identical, which is the
+  expected result and also confirms the capture is deterministic.

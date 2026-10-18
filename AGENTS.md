@@ -202,3 +202,17 @@ verifiable CDN with an integrity hash recorded in `docs/data-sources.md`.
   one step either side. `TestVariantBreakpoint` now derives it from the geometry
   (`--track-full` less two gutters equals the wide viewBox) so it cannot be
   re-derived from the wrong sample.
+- **A guard can test the wrong neighbour and stay green on its own defect.**
+  Found again 2026-10-18 in `chart_01.py`: panel 2's plot was lowered to clear
+  its title only when `span_title_y < gap_bottom + 64`, which is false exactly
+  when the title had been pushed furthest down — the only case needing the room.
+  Every constant was reasonable; the comparison named the wrong reference. When
+  you write a guard, ask *which* quantity it must be bounded by, and add a test
+  that restores the superseded logic and asserts the guard fires on it. Passing
+  a test that never exercised the defect is how this class survives.
+- **When you fix a bug by moving code into a function, the move is where the
+  next bug is.** Extracting the panel placement above turned up a second flaw in
+  the same three lines: `span_title_y + 14` measured a one-line title's descent,
+  but the title wraps to three lines on narrow, so it was measured from the wrong
+  baseline — the same category of error as the bug being fixed. Re-derive the
+  arithmetic when you extract it; do not transcribe it.

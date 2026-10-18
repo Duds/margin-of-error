@@ -162,6 +162,60 @@ def gap_scale(plot: Box, values: list[float], span: float) -> Scale:
     return Scale(d0=nice_lo, d1=nice_hi, r0=plot.bottom, r1=plot.top)
 
 
+# Panel 2's title is placed against two different neighbours, and only solving
+# one of them produced two rounds of the same bug.
+PANEL1_CAPTION_CLEARANCE = 78   # below panel 1's axis, above panel 2's plot
+TITLE_DESCENT = 14              # box an 18px baseline carries beneath it
+TITLE_LEADING = 26              # step between wrapped title lines
+
+
+def title_block_bottom(baseline_y: float, n_lines: int) -> float:
+    """Lowest point of a wrapped title: last line's baseline plus its descent."""
+    return baseline_y + TITLE_DESCENT + (n_lines - 1) * TITLE_LEADING
+
+
+def panel2_placement(
+    *,
+    gap_bottom: float,
+    span_top: float,
+    span_bottom: float,
+    plot_bottom: float,
+    n_span_lines: int,
+) -> tuple[float, float, float]:
+    """Return (title baseline, plot top, plot bottom) for panel 2.
+
+    Two crowding problems point in opposite directions:
+
+    * The title can sit too *high*, overrun panel 1's captions, and be drawn
+      through them. That is the narrow variant, whose title wraps to two lines.
+    * The title can sit too *low*, inside panel 2's own plot area, and be drawn
+      through the data. That is the wide variant.
+
+    The original code handled only the first. Its guard tested
+    `span_title_y < gap_bottom + 64`, which is false exactly when clearing
+    panel 1 pushed the title furthest down -- the only case that then needed
+    the plot moved out of its way. On the wide variant the baseline landed at
+    227.16, below `span_top` of 209.44, so the title drew inside its own plot
+    and its last glyph met the 2022 result marker 0.8px away. Measured in a
+    browser, not inferred: see the 2026-10-18 Events entry, and
+    `tools/verify.mjs`, which reports the closest label-to-mark gap.
+
+    The invariant both branches now enforce is that the plot starts at or below
+    the bottom of its own title.
+    """
+    title_y = max(span_top - TITLE_DESCENT, gap_bottom + PANEL1_CAPTION_CLEARANCE)
+    # Extra lines grow upward from the placement, so the first line lifts.
+    title_y -= (n_span_lines - 1) * TITLE_LEADING
+
+    if title_y < gap_bottom + 64:
+        title_y = gap_bottom + 64
+        return title_y, title_block_bottom(title_y, n_span_lines), plot_bottom
+    block_bottom = title_block_bottom(title_y, n_span_lines)
+    if block_bottom > span_top:
+        return title_y, block_bottom, plot_bottom
+    return title_y, span_top, span_bottom
+
+
 def render(viewport: str, panels: dict) -> str:
     cfg = VIEWPORTS[viewport]
     w, h, plot = cfg["w"], cfg["h"], cfg["plot"]
@@ -194,18 +248,13 @@ def render(viewport: str, panels: dict) -> str:
     span_top = plot.top + box_h * SPAN_PANEL_TOP
     span_bottom = plot.top + box_h * SPAN_PANEL_BOTTOM
 
-    # Panel 1's labels sit below its axis; panel 2's title must clear them, and
-    # must clear its own extra lines. Both are measured in bounding boxes: an
-    # 18px line's box is about 23 units tall.
-    span_title_y = max(
-        span_top - 14,
-        gap_bottom + 78 + (len(gap_title_lines) - 1) * 0,
+    span_title_y, span_top, span_bottom = panel2_placement(
+        gap_bottom=gap_bottom,
+        span_top=span_top,
+        span_bottom=span_bottom,
+        plot_bottom=plot.bottom,
+        n_span_lines=len(span_title_lines),
     )
-    span_title_y -= (len(span_title_lines) - 1) * 26
-    if span_title_y < gap_bottom + 64:
-        span_title_y = gap_bottom + 64
-        span_top = span_title_y + 14 + (len(span_title_lines) - 1) * 26
-        span_bottom = plot.bottom
 
     gs = panels["gaps"]
     signed = [g.signed_gap for g in gs]
