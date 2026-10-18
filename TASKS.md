@@ -449,6 +449,33 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
 
 ## BACKLOG
 
+- **Chart 01 panel-2 title collides with the 2022 result marker (wide only).**
+  Found 2026-10-18 by eye on the recaptured 1280px screenshot, after the
+  breakpoint work. `verify.mjs` reports `overlap=0` because it only checks
+  text-against-text; this is text-against-line, which no check covers. Exact
+  geometry: the title baseline is at y=227.2 and its last glyph ends at
+  x=795.2; the 2022 result cap bar spans x=796-822 at y=223.7. They touch, so
+  "gave" reads as struck through by the marker.
+  > **The cause is a vertical-space conflict, not a bad constant.** Panel 1's
+  > year/value labels sit at y 196-209, so panel 2's title is pushed below them
+  > to baseline 227.2 — which is *inside* panel 2's own plot, because
+  > `span_top` is 209.44 and the code only moves `span_top` down in the
+  > `span_title_y < gap_bottom + 64` branch, which this case does not take. The
+  > title is therefore drawn over the plot area, and the 2022 marker is in it.
+  > `chart_01.py` records this placement being wrong in "the first two passes",
+  > so a third unilateral tweak is not the answer; it needs the author's eye on
+  > the rendered chart.
+  > Three real options, each a decision: (a) shorten the title so its last glyph
+  > clears x=796 — editorial; (b) give panel 2 a dedicated title row above its
+  > plot and shrink the plot to match — geometry, changes the panel split; (c)
+  > move panel 1's value labels above its bars instead of below, freeing the row
+  > — geometry, changes how panel 1 reads. Recommend deciding with the chart in
+  > front of you, then adding a text-against-line check to `verify.mjs` so it
+  > cannot silently return.
+  Not caused by this PR's breakpoint change: the screenshots are byte-identical
+  before and after it, and the collision is in the committed chart SVG already
+  on `main` since `d5bf306`.
+
 - **Corrections policy page** — `docs/corrections.md` exists as an internal
   register; it needs a public-facing version and a route for readers to report
   an error.
