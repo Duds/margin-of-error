@@ -1753,5 +1753,308 @@ class TestDocumentedFiguresMatchTheData(unittest.TestCase):
         self.assertIn("Chart 06 — Seat margin", specs)
 
 
+
+class TestRegistryFamilyResolution(unittest.TestCase):
+    r"""A `<year>` family must register its years, or the ids are unciteable.
+
+    The AEC first-preferences family was written as
+    `aec-hor-<year>-fp-by-party   (2004, 2007, ...)` inside the source_id line.
+    The parser's regex is `^source_id:\s*(\S+)\s*$`, so the parenthetical made
+    the whole line unmatched: the family registered nothing, and seven of the
+    nine elections in data/aec_election_results.csv could not be cited. Chart 02
+    passed only because it happens to cite 2001 and 2025, which were also
+    written up individually.
+
+    So the years moved to their own `years:` field, and the parser expands the
+    family against it.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "build", Path(__file__).resolve().parent.parent / "tools" / "build.py"
+        )
+        cls.build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.build)
+
+    def test_every_ingested_aec_source_id_resolves(self):
+        """The data file cites ids; the registry must hold every one.
+
+        Read from the data rather than listed here, so a new election row with
+        an unregistered source id fails this test instead of shipping.
+        """
+        root = Path(__file__).resolve().parent.parent
+        registry = (root / "docs" / "data-sources.md").read_text(encoding="utf-8")
+        entries = self.build._registry_entries(registry)
+        with (root / "data" / "aec_election_results.csv").open(
+            encoding="utf-8", newline=""
+        ) as fh:
+            cited = {row["source_id"] for row in csv.DictReader(fh)}
+        missing = sorted(cited - set(entries))
+        self.assertEqual(
+            missing,
+            [],
+            f"data/aec_election_results.csv cites source ids the registry does "
+            f"not hold: {missing}. A chart citing them is refused.",
+        )
+
+    def test_family_without_years_registers_nothing(self):
+        """A family with no year list is a defect, not an empty set.
+
+        Expanding to zero ids would silently make every citation against it
+        unknown, which is the failure mode this whole class exists to catch.
+        """
+        reg = "source_id: aec-hor-<year>-fp-by-party\ntitle: nothing\n"
+        self.assertEqual(self.build._registry_entries(reg), {})
+
+    def test_family_does_not_borrow_another_blocks_years(self):
+        """Each family reads only its own block."""
+        reg = (
+            "source_id: aec-hor-<year>-alpha\nyears: 2001, 2002\n\n"
+            "source_id: aec-hor-<year>-beta\n"
+        )
+        entries = self.build._registry_entries(reg)
+        self.assertIn("aec-hor-2001-alpha", entries)
+        self.assertNotIn("aec-hor-2001-beta", entries)
+
+    def test_cross_check_flag_applies_to_the_family_members(self):
+        """A cross-check-only family must mark its expanded ids, not the pattern."""
+        reg = (
+            "source_id: poll-<year>-pvi\nyears: 2019, 2022\n"
+            "cross_check_only: yes\n"
+        )
+        entries = self.build._registry_entries(reg)
+        self.assertTrue(entries.get("poll-2019-pvi"))
+        self.assertTrue(entries.get("poll-2022-pvi"))
+        self.assertNotIn("poll-<year>-pvi", entries)
+
+
+class TestProvenanceIdsAreNotElementIds(unittest.TestCase):
+    """`data-source-id` must never be suffixed as though it were an element id.
+
+    The narrow-variant pass collects ids with `id="([^"]+)"`, which also matches
+    the tail of `data-source-id="roymorgan-pvi"`. It then appended `-narrow` to
+    the provenance key, so the built page cited `roymorgan-pvi-narrow` — an id in
+    no registry — and the unknown-id gate refused to write. That refusal is what
+    let the committed artefact go stale.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "build", Path(__file__).resolve().parent.parent / "tools" / "build.py"
+        )
+        cls.build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.build)
+
+    SVG = (
+        '<svg viewBox="0 0 10 10" role="img" '
+        'aria-labelledby="c-title c-desc" data-source-id="aec-hor-2025">'
+        '<title id="c-title">t</title><desc id="c-desc">d</desc>'
+        '<pattern id="hatch-mo"></pattern>'
+        '<polygon fill="url(#hatch-mo)" />'
+        "</svg>"
+    )
+
+    def test_provenance_key_survives_untouched(self):
+        out = self.build.add_narrow_attrs(self.SVG)
+        self.assertIn('data-source-id="aec-hor-2025"', out)
+        self.assertNotIn("aec-hor-2025-narrow", out)
+
+    def test_element_ids_are_still_suffixed(self):
+        """The fix must not disable the suffixing it sits next to."""
+        out = self.build.add_narrow_attrs(self.SVG)
+        self.assertIn('id="hatch-mo-narrow"', out)
+        self.assertIn("url(#hatch-mo-narrow)", out)
+        self.assertIn('aria-labelledby="c-title-narrow c-desc-narrow"', out)
+
+    def test_built_page_cites_only_registered_source_ids(self):
+        """The artefact gate, asserted on the real committed page.
+
+        Checking the source SVGs alone could not see a defect the build
+        introduces, which is how this one hid.
+        """
+        root = Path(__file__).resolve().parent.parent
+        registry = (root / "docs" / "data-sources.md").read_text(encoding="utf-8")
+        html = (root / "index.html").read_text(encoding="utf-8")
+        self.assertEqual(
+            self.build.artefact_source_id_problems(html, registry),
+            [],
+            "the built page cites a source id the registry does not hold",
+        )
+
+
+class TestDuplicateElementIds(unittest.TestCase):
+    """Two charts must not declare the same id with different content.
+
+    Every chart emits its own `<pattern id="hatch-mo">`, and only the narrow
+    variant is suffixed, so two wide charts in one page both declare it and
+    every `url(#hatch-mo)` resolves to whichever comes first. Harmless while the
+    patterns are byte-identical, which they are; silently wrong the moment one
+    generator's density changes, because the change would have no effect and
+    nothing would say so.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "build", Path(__file__).resolve().parent.parent / "tools" / "build.py"
+        )
+        cls.build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.build)
+
+    def test_identical_duplicates_pass(self):
+        """The current state: same id, same bytes, so the reference is inert."""
+        block = '<pattern id="hatch-mo" width="4"><line stroke-width="1" /></pattern>'
+        html = f"<svg>{block}</svg><svg>{block}</svg>"
+        self.assertEqual(self.build.duplicate_id_problems(html), [])
+
+    def test_divergent_duplicates_are_refused(self):
+        a = '<pattern id="hatch-mo" width="4"><line stroke-width="1" /></pattern>'
+        b = '<pattern id="hatch-mo" width="6"><line stroke-width="1.6" /></pattern>'
+        problems = self.build.duplicate_id_problems(f"<svg>{a}</svg><svg>{b}</svg>")
+        self.assertTrue(problems, "a divergent duplicate id must be refused")
+        self.assertIn("hatch-mo", problems[0])
+
+    def test_committed_page_has_no_divergent_duplicates(self):
+        root = Path(__file__).resolve().parent.parent
+        html = (root / "index.html").read_text(encoding="utf-8")
+        self.assertEqual(self.build.duplicate_id_problems(html), [])
+
+
+class TestDraftArtefact(unittest.TestCase):
+    """The page under a red gate is built and marked, not left unbuildable.
+
+    Refusing to write was the original behaviour and it is why the committed
+    index.html went stale: while the gate was red the page could not be
+    regenerated, so three fixes to the sources never reached the artefact and
+    nothing reported it.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "build", Path(__file__).resolve().parent.parent / "tools" / "build.py"
+        )
+        cls.build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.build)
+        root = Path(__file__).resolve().parent.parent
+        cls.template = (root / "src" / "index.template.html").read_text(
+            encoding="utf-8"
+        )
+        cls.registry = (root / "docs" / "data-sources.md").read_text(encoding="utf-8")
+
+    def test_draft_page_carries_noindex_and_a_banner(self):
+        html = self.build.mark_draft("<html><head></head><body></body></html>", ["x"])
+        self.assertIn('name="robots" content="noindex"', html)
+        self.assertIn('data-draft="true"', html)
+
+    def test_the_banner_does_not_change_the_validation_result(self):
+        """The marked page must be judged the same as the unmarked one.
+
+        If the banner itself tripped a rule, the draft artefact would carry a
+        defect the gate never saw — the same class of failure as the undefined
+        --band-hatch, which was invisible because an absent paint is not an
+        error.
+        """
+        html = self.build.build(self.template)
+        problems = self.build.validate(html, self.template)
+        self.assertTrue(problems, "expected the real gate to be red")
+        marked = self.build.mark_draft(html, problems)
+        after = self.build.validate(marked, self.template)
+        self.assertEqual(
+            len(after), len(problems), f"banner changed the result: {after}"
+        )
+
+    def test_marking_refuses_a_template_it_cannot_mark(self):
+        """A draft that cannot be marked must not be written as a draft."""
+        with self.assertRaises(SystemExit):
+            self.build.mark_draft("<html><body></body></html>", ["x"])
+        with self.assertRaises(SystemExit):
+            self.build.mark_draft("<html><head></head></html>", ["x"])
+
+    def test_check_reports_gates_and_drift_separately(self):
+        """A red gate must not be able to hide a stale artefact.
+
+        Drift lived only in a CI step ordered after a step that fails by
+        design, so it had never executed. It is now measured by --check itself.
+        """
+        root = Path(__file__).resolve().parent.parent
+        html = self.build.build(self.template)
+        problems = self.build.validate(html, self.template)
+        expected = self.build.mark_draft(html, problems) if problems else html
+        self.assertEqual(self.build.drift_problems(expected), [])
+        self.assertTrue(
+            self.build.drift_problems(expected + "\n<!-- hand edited -->")
+        )
+
+    def test_committed_artefact_matches_a_fresh_build(self):
+        """The regression this whole class exists for.
+
+        Asserted against the real file, not a fixture: the last session
+        reported four fixes as verified when the artefact still contained three
+        of the defects.
+        """
+        root = Path(__file__).resolve().parent.parent
+        html = self.build.build(self.template)
+        problems = self.build.validate(html, self.template)
+        expected = self.build.mark_draft(html, problems) if problems else html
+        committed = (root / "index.html").read_text(encoding="utf-8")
+        self.assertEqual(
+            committed,
+            expected,
+            "index.html is stale. Run `python3 tools/build.py"
+            + (" --draft" if problems else "")
+            + "` and commit the result.",
+        )
+
+    def test_narrow_charts_announce_their_own_description(self):
+        """The defect the stale artefact preserved.
+
+        `aria-labelledby` was rewritten only for its first token, so each narrow
+        chart pointed at the WIDE chart's description. Every id resolved,
+        because the wide desc genuinely exists — only a screen reader
+        announces the wrong text.
+        """
+        root = Path(__file__).resolve().parent.parent
+        html = (root / "index.html").read_text(encoding="utf-8")
+        ids = set(re.findall(r'(?<![-\w])id="([^"]+)"', html))
+        for value in re.findall(r'aria-labelledby="([^"]+)"', html):
+            for token in value.split():
+                self.assertIn(token, ids, f'"{token}" resolves to nothing')
+        for stem in ("chart-01", "chart-02"):
+            self.assertIn(
+                f'aria-labelledby="{stem}-title-narrow {stem}-desc-narrow"',
+                html,
+                f"{stem}-narrow does not reference its own desc",
+            )
+
+    def test_every_shaded_band_carries_the_band_class(self):
+        """The print and narrow fill rules select on .band.
+
+        The shaded polygons carried only a fill attribute, so both rules were
+        inert and neither the narrow swap nor the print density ever applied.
+        """
+        root = Path(__file__).resolve().parent.parent
+        html = (root / "index.html").read_text(encoding="utf-8")
+        bands = re.findall(r"<polygon[^>]*>", html)
+        hatched = [b for b in bands if "band-hatch" in b]
+        self.assertEqual(
+            len(hatched),
+            sum(1 for b in hatched if 'class="band"' in b),
+            "a hatched polygon has no .band class, so the stylesheet cannot "
+            "swap its fill for the narrow or print pattern",
+        )
+        self.assertGreater(len(hatched), 0, "no hatched bands found at all")
+
+
 if __name__ == "__main__":
     unittest.main()

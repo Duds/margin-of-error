@@ -152,3 +152,31 @@ verifiable CDN with an integrity hash recorded in `docs/data-sources.md`.
   Any fetch script must validate on page title or body text, never on status
   code alone. The live archive is `results.aec.gov.au`, one directory per
   election event.
+- **A gate that refuses to write also freezes what it gates.** Discovered
+  2026-10-06: `tools/build.py` would not write `index.html` while a publication
+  gate was red, so while the gate was red — which is its permanent state until
+  task 0003 lands — the page could not be regenerated. Three fixes to the
+  sources never reached the artefact, a session reported them as verified, and
+  nothing could tell us. Publication is now gated on `--check` exiting 0, and
+  the artefact is always buildable: `--draft` writes it marked `noindex` with a
+  banner, so a page under review is current with its data without ever looking
+  shippable. Never let a publication gate become a build gate.
+- **Check the artefact, not just the source.** The provenance, caption and
+  accessibility checks all read `charts/*.svg` and the template. A defect the
+  *build* introduces is invisible to them. This is how `data-source-id` got
+  suffixed like an element id — `roymorgan-pvi-narrow`, an id in no registry —
+  while every source file stayed correct. `artefact_source_id_problems` and
+  `test_committed_artefact_matches_a_fresh_build` now assert against
+  `index.html` itself.
+- **A CI step ordered after a step that fails by design never runs.** The drift
+  check lived in its own workflow step, behind `--check`, which is red by
+  intent. It was recorded as "verified to fail on a hand-edited artefact". It
+  had never executed, because neither had CI: the workflow was never on
+  `origin/main`. Put the checks that must produce signal *before* the known-red
+  gate, and fold drift into `--check` so step ordering cannot hide it.
+- **Registry families must be resolvable ids.** A `source_id:` line carrying a
+  trailing parenthetical does not match the parser at all, so the family
+  registered nothing and seven of nine AEC elections were unciteable. List a
+  family's years in a `years:` field. A family with no `years:` registers
+  nothing by design, and `test_every_ingested_aec_source_id_resolves` fails if
+  the data cites an id the registry does not hold.

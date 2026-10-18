@@ -369,6 +369,36 @@ figure .chart-narrow {
   fill: url(#hatch-mo-narrow);
 }
 
+/* ---------- Draft banner ---------- */
+
+/* Only ever present on a `--draft` artefact, which is a page built while a
+   publication gate is red. It exists so the committed page can stay current
+   with its sources without ever being mistakable for something shippable.
+   Tokens only, so it cannot trip the raw-hex rule it sits inside. */
+.draft-banner {
+  border-block: 2px solid var(--color-loss);
+  background: var(--color-paper-raised);
+  color: var(--color-ink);
+  padding-block: 12px;
+  /* Same inline padding as .layout, so the notice lines up with the page. */
+  padding-inline: var(--space-5);
+  margin: 0;
+  font-family: var(--face-body);
+}
+
+/* The strip is full-bleed, like any site-wide notice, but the copy is not: an
+   unconstrained line ran to 2293px, which no one reads. Same measure as the
+   prose. */
+.draft-banner p {
+  margin: 0 auto;
+  max-width: var(--measure);
+}
+
+.draft-banner p + p {
+  margin-top: 6px;
+  color: var(--color-ink-muted);
+}
+
 /* ---------- Focus ---------- */
 
 :focus-visible {

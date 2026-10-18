@@ -48,29 +48,23 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Validate the page
-        run: python3 tools/build.py --check
-
+      # Tests run FIRST on purpose. Steps are sequential and a failed step
+      # skips the rest, and `build.py --check` fails by design while task 0003
+      # is open. When --check was the first step, that meant the gate's own red
+      # result hid the test result: 144 tests existed and CI never ran any of
+      # them. A known-red publication gate should not cost us the geometry
+      # signal.
       - name: Test chart geometry and guard rails
         run: python3 -m unittest discover -s tests -v
 
-      # The generated page is committed. If it drifts from the template
-      # plus the committed SVGs, then someone hand-edited the artefact,
-      # which is exactly what the template/output separation forbids.
+      # Drift is checked inside --check rather than in its own step, for the
+      # same reason. As a later step it could not run while the gate was red,
+      # so it was a check that had never once executed. It also previously ran
+      # `build.py` with no arguments, which overwrote index.html before
+      # comparing it: that version reported "no drift" on a hand-edited file.
       #
-      # This must run the build to a TEMPORARY file and diff against the
-      # committed one. Writing over index.html first and diffing after
-      # would always pass: the build overwrites whatever was there, so
-      # the drift is destroyed before it is measured. That version of the
-      # check was written, tested, and caught doing exactly this — it
-      # reported no drift on a file that had been hand-edited.
-      - name: Verify index.html matches its sources
-        run: |
-          cp index.html /tmp/index.committed.html
-          python3 tools/build.py
-          if ! diff -u /tmp/index.committed.html index.html; then
-            echo "::error::index.html is out of date with src/index.template.html"
-            echo "::error::Run 'python3 tools/build.py' and commit the result."
-            exit 1
-          fi
-          echo "index.html is current."
+      # --check compares the committed artefact against what the sources build,
+      # marked as a draft when a gate is red, because the artefact under a red
+      # gate IS the draft.
+      - name: Validate the page and check the artefact is current
+        run: python3 tools/build.py --check

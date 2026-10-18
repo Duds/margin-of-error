@@ -116,15 +116,38 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   > every chart without regenerating. The accepted cost is that `index.html`
   > becomes a generated artefact, mitigated by the template/output separation
   > now specified in the 0006 entry under NOW.
-- **0003 — Source the AEC data** — build the historical vote series.
-  > Blocked on nothing. AEC publishes results by election, house of reps and
-  > senate files per cycle. Historical series must match on AEC party
-  > abbreviation per election, not the modern name, or rows drop silently.
-  > **Progress 2026-10-03:** results.aec.gov.au is the live archive. The
-  > general-election index is `results.aec.gov.au/<eventId>/Website/`, one
-  > event id per cycle. Seat count verified (see BLOCKED). The historical vote
-  > series across cycles is the remaining work.
-  > Next: register every intended source in `docs/data-sources.md` before use.
+- **0003 — Source the AEC data** — confirm the ingested series against AEC.
+  > **The series is built. What remains is confirmation, and one code change.**
+  > `tools/ingest_aec_seats.py` reads all nine general elections, 2001 to 2025,
+  > from AEC primary sources; both axes (national primary and seats won) come
+  > from `HouseFirstPrefsByPartyDownload`, and the chamber size from the party
+  > representation download. Roy Morgan agrees with the AEC to within 0.04 points
+  > at every one of the nine.
+  > **What --check still refuses, and why.** Chart 01's *result* axis reads
+  > `data/roymorgan_election_results.csv`, which is cross-check-only, so the gate
+  > is red by design. It clears when the AEC figures are moved onto that axis.
+  > **This is not a data edit, contrary to the spec.** The spec says "the CSV rows
+  > change, the registry gains the aec-hor-* entries, and the chart picks them up.
+  > No chart code changes." Both halves are false:
+  > 1. `charts/chart_01.py` reads columns `primary_vote_oned_pct` and
+  >    `requires_aec_confirmation`. `data/aec_election_results.csv` has
+  >    `primary_vote_pct` and **no confirmation column at all**, so pointing the
+  >    chart at it raises KeyError.
+  > 2. The registry used to hold 2004 to 2022 only as an `aec-hor-<year>-fp-by-party`
+  >    *family*, which the resolver did not expand — so seven of nine elections
+  >    were unciteable. **Fixed 2026-10-06**: families now expand against a
+  >    `years:` field, and a test asserts every id cited in
+  >    `data/aec_election_results.csv` resolves.
+  > So the remaining work is: add the AEC columns Chart 01 needs (or point it at
+  > the AEC file and rename), set `requires_aec_confirmation = no`, and mark
+  > `roymorgan-pvi` cross-check-only no longer — or keep it cross-check-only and
+  > cite the AEC id on the chart, which is the correct fix.
+  > AEC publishes results by election, one event id per cycle. Historical series
+  > must match on AEC party abbreviation per election, not the modern name, or
+  > rows drop silently: HAN in 2001 and 2004, ON from 2007.
+  > **1996 cannot be sourced.** The AEC archive begins at 2001, so the spec's
+  > "1996 to 2025, ten general elections" is unsourceable as written. The series
+  > is nine.
 - **0004 — Establish the polling dataset** — fieldwork dates, house, n, margin.
   > **INGEST BUILT 2026-10-04. The structural blocker stands.**
   > `tools/ingest_roymorgan.py` reads the Roy Morgan PVI page and writes
@@ -241,17 +264,22 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   > assertion and the zero-width band assertion (BACKLOG: citation resolver).
   > **0007 is now blocked on data only:** tasks 0003 and 0004 must supply the
   > polling series and the AEC results.
-  > **STATUS 2026-10-05: BUILT AND GATED. BLOCKED ON 0003 ONLY.**
-  > Both charts are built on branch `charts-01-polling-vs-result` and verified
-  > in a browser at 320px and 1280px. The captions state computed figures, not
-  > typed ones, and nine build assertions now refuse an unsourced or
-  > mismatched figure — each one proven to fire by mutating a single input in a
-  > scratch copy.
+  > **STATUS 2026-10-06: BUILT AND GATED. BLOCKED ON 0003 ONLY.**
+  > Both charts are built on branch `charts-01-polling-vs-result`. The captions
+  > state computed figures, not typed ones, and the build assertions refuse an
+  > unsourced or mismatched figure — each one proven to fire by mutating a
+  > single input in a scratch copy.
+  > **Correction 2026-10-06: the paragraph below claiming four defects were
+  > fixed and verified was true of the sources and false of the page.** The
+  > committed `index.html` still carried three of them, because the gate refused
+  > to write while red, so the artefact could not be regenerated at all. Fixed
+  > by `--draft`, and asserted by `test_committed_artefact_matches_a_fresh_build`.
   > **`tools/build.py --check` exits 1, by design.** It refuses `chart-01.svg`
   > and its narrow variant because their only source, `roymorgan-pvi`, is marked
   > `cross_check_only: yes` in the registry. A test asserts the gate is still
   > red, so it cannot be quietly loosened. **CI stays red until 0003 confirms
-  > the 2019 and 2022 results against the AEC.**
+  > the 2019 and 2022 results against the AEC**, but the 161 geometry tests now
+  > run first, so a red gate no longer hides the test signal.
   > **Chart 02 (seat efficiency) is not behind that gate.** Its figures come from
   > the AEC's own per-election files, so it passes today and the two charts can
   > ship independently. It is still awaiting Dale's keep-or-cut decision.
@@ -286,7 +314,7 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   > Confirmed the by-election reads as an annotation: its text sits at y=81-122,
   > entirely above the series range of y=223-440, and the chart carries exactly
   > 18 markers for 9 elections — no tenth point.
-  > Depends on: 0001, 0003, 0004.</new_string>
+  > Depends on: 0001, 0003, 0004.
 - **0008 — Responsive chart contract** — MOSTLY RESOLVED by 0006, remainder
   is chart-specific.
   > **Resolved and now house rules**, each measured in a browser:
@@ -300,12 +328,15 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   >   generator emits `chart-NN.svg` and `chart-NN-narrow.svg`. Confirmed by
   >   Dale on 2026-10-04 in preference to horizontal scrolling or relying on the
   >   data table.
-  > - **Both variants ship in the DOM as siblings**, CSS-switched at 640px, so
-  >   a screen reader always finds a chart. Not `<picture>`: verified that it
-  >   does not media-switch two inline `<svg>` elements. Narrow IDs are
-  >   suffixed and its `url(#hatch-mo)` rewritten, or both charts would claim
-  >   the same `id` and the narrow `aria-labelledby` would resolve to the wide
-  >   chart's title.
+  > - **Both variants ship in the DOM as siblings**, CSS-switched at 1100px
+  >   (raised from 640px on 2026-10-05 — see the label-floor finding under
+  >   0007), so a screen reader always finds a chart. Not `<picture>`: verified
+  >   that it does not media-switch two inline `<svg>` elements. Narrow ids are
+  >   suffixed and its `url(#...)` references rewritten, or both charts would
+  >   claim the same `id` and the narrow `aria-labelledby` would resolve to the
+  >   wide chart's title. **Only the `id` attribute is suffixed, never
+  >   `data-source-id`**, which is provenance and not an element id; suffixing it
+  >   produced an unresolvable citation and froze the artefact.
   > - **Charts are siblings of `.col-prose`, never children.** A nested figure
   >   is trapped in columns 2 to 8 and can never reach the breakout track.
   > - **`<figure>` needs `width: 100%`**, or it is sized by its SVG and
@@ -444,24 +475,47 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   The chart checks could not see it, so `index.html` was shipping a visible
   "PLACEHOLDER SOURCE NOTE" in the figure caption while passing every other
   rule. Provenance is declared on the `<svg>` root, so it stays greppable
-  without a manifest to drift out of sync. 9 regression tests cover these;
-  suite is 30.
-- **Mobile layout verification** — verify at 320px, 680px, 1100px against the
-  grid spec in `DESIGN.md`. Partially done by 0006 (320px and 1280px
-  measured, reduced-motion checked); 680px and 1100px are unverified, and
-  680px is the breakpoint the 640px chart switch sits just inside.
+  without a manifest to drift out of sync. 9 regression tests cover these; the
+  suite was 30 then and is 161 at 2026-10-06.
+- **Mobile layout verification** — **DONE 2026-10-05/06.** Measured at 320, 480,
+  640, 900, 1100, 1280 and 1600px: zero label overlaps, nothing outside the
+  viewBox, all nine bands resolving in every variant, and no horizontal overflow
+  at any width. This is what raised the chart breakpoint from 640px to 1100px —
+  the wide variant rendered 8.61px labels at 640px, under the DESIGN.md floor of
+  16px. The `680px` in the original note was a guess at the grid breakpoint; the
+  chart switch is what actually mattered and it is now measured. The draft banner
+  was separately checked at 320 and 1280 (no overflow, text constrained to the
+  66ch measure).
 - **Accessibility audit** — axe or equivalent, plus manual keyboard traversal.
   The build enforces the floor mechanically (`lang="en-AU"`, one `h1`, one
   `main`, `role="img"`/`<title>`/`<desc>` on every chart, no unfilled
   placeholder, no raw hex), but no third-party audit and no keyboard pass has
   been run.
-- **CI** — **DONE 2026-10-04.** `.github/workflows/ci.yml` runs on push and
-  pull request: `build.py --check`, the 30 geometry and guard-rail tests, and a
-  drift check confirming `index.html` matches its sources. No `pip install`, so
-  the guard on the page's accuracy has no supply chain to go stale. Python
+- **CI** — **WRITTEN, NEVER RAN, AND TWO STEPS COULD NOT FIRE.**
+  `.github/workflows/ci.yml` runs on push to and pull request against `main`:
+  the geometry and guard-rail tests, then `build.py --check`. No `pip install`,
+  so the guard on the page's accuracy has no supply chain to go stale. Python
   pinned to 3.13 (the generators use PEP 604 unions, so 3.10 is the floor).
-  Verified by simulating each step locally, and the drift check was verified to
-  fail on both a hand-edited artefact and a stale template.
+  **Correction 2026-10-06.** The entry previously read "DONE" and claimed the
+  drift check "was verified to fail on both a hand-edited artefact and a stale
+  template." Neither claim survived checking:
+  1. **CI has never executed once.** The workflow is not on `origin/main`, and
+     the branch carrying it has never been pushed — 18 commits on `main` and 10
+     on `charts-01-polling-vs-result` are unpushed. A workflow that has never
+     run cannot have verified anything.
+  2. **The drift step was unreachable.** Steps run sequentially under `set -e`,
+     and `--check` fails by design while task 0003 is open. With `--check`
+     first, every later step was skipped on every run that could ever have
+     happened. The 144 (now 161) tests were in the same position.
+  3. **`--check` never checked drift.** It validated the freshly built string and
+     compared it to nothing. The drift comparison existed only in the YAML.
+  **Fixed 2026-10-06.** Drift is now measured inside `validate()` via
+  `drift_problems()`, so no step ordering can hide it, and the tests run before
+  `--check` so a known-red gate does not cost the test signal. Both were proven
+  to fire by mutating a hand-edited artefact in a scratch copy.
+  **Still to do:** push the branch and open the PR, which is the only way CI runs
+  for the first time. Until then this entry describes a pipeline that has never
+  executed.
 - **Performance budget** — target LCP under 2.0s on a 4G connection. Fonts
   self-hosted, subset to the Latin subset used. **Budget raised to 400KB
   critical path, 2026-10-03.**
@@ -1106,3 +1160,65 @@ Append-only. Newest last.
   A fourth accepted the correct chamber size on the wrong election, because a
   membership test cannot tell the difference between 151 being right and 151
   being right-for-2019.
+
+- 2026-10-06 — **The previous session reported four defects as fixed and
+  verified. Three were still on the page.** Found by asking a status question
+  rather than by trusting the record: `index.html` as committed still carried the
+  wrong `aria-labelledby` on both narrow charts and no `class="band"` on any of
+  the eighteen shaded polygons. The sources were right and the artefact was
+  wrong, because **the gate refuses to write while it is red, so while the gate
+  was red the page could not be regenerated at all.** A gate that blocks
+  publication had also frozen the thing under review, and nothing reported it.
+  The screenshots from that session were taken from a live build, so they showed
+  the fixed page; the committed page was not that page.
+
+  Four defects found this time, all of them the same shape — a guard pointed at
+  the wrong object, passing on the thing it exists to catch:
+
+  1. **`--check` never checked drift.** `main()` validated the freshly built
+     string and compared it to nothing. The drift comparison lived only in the
+     CI workflow, in a step ordered after a step that fails by design, so it
+     could never run. The 161 tests were in the same position behind it.
+  2. **CI has never executed once.** `.github/workflows/ci.yml` is not on
+     `origin/main` and the branch was never pushed. The backlog entry claimed
+     the drift check "was verified to fail on both a hand-edited artefact and a
+     stale template." A workflow that has never run verified nothing.
+  3. **Task 0003 could not clear the gate as specified.** The spec promises the
+     fix is a data edit needing "no chart code changes". False on both halves:
+     `charts/chart_01.py` reads `primary_vote_oned_pct` and
+     `requires_aec_confirmation`, and `data/aec_election_results.csv` has
+     `primary_vote_pct` and **no confirmation column**, so pointing it at AEC
+     data raises KeyError. And the registry held 2004–2022 only as an
+     `aec-hor-<year>-fp-by-party` *family*, which the resolver did not expand —
+     the `source_id:` line carried a trailing parenthetical, so the parser's
+     `^source_id:\s*(\S+)\s*$` never matched it and the family registered
+     nothing. **Seven of nine elections were unciteable.** Chart 02 passed only
+     because it happens to cite 2001 and 2025, which were also written up
+     individually.
+  4. **`data-source-id` was being suffixed as if it were an element id.** The
+     narrow-variant pass collects ids with `id="([^"]+)"`, which also matches
+     the tail of `data-source-id="roymorgan-pvi"`. The built page therefore
+     cited `roymorgan-pvi-narrow`, an id in no registry — and the unknown-id
+     gate refused to write, which is the mechanism in defect 1.
+
+  Fixed: families expand against a new `years:` field; the id scan now uses
+  `(?<![-\w])id=` so provenance keys are left alone; drift is measured inside
+  `validate()`; tests run before `--check` in CI; and `--draft` writes a marked
+  artefact (noindex plus a banner stating the gate count) so the page stays
+  current with its data while the gate stays red. Publication still requires
+  `--check` to pass, which it cannot do until 0003 lands.
+
+  Two new gates, each proven to fire: `artefact_source_id_problems` (the
+  existing unknown-id check reads the *source* SVGs, so it cannot see a defect
+  the build introduces — which is exactly how defect 4 hid), and
+  `duplicate_id_problems`. The latter found a fifth thing: **all four charts
+  emit a byte-identical `<pattern id="hatch-mo">`, and only the narrow variant
+  is suffixed, so two wide charts in one page both declare it and every
+  `url(#hatch-mo)` resolves to Chart 01's.** Harmless while the patterns match,
+  silently wrong the moment either density is changed — the change would have no
+  effect and nothing would say so. Scoped per chart is the real fix, but it
+  breaks the single `.chart-narrow .band` rule that exists to swap the fill, so
+  it is a design decision and is recorded rather than taken.
+
+  Suite 144 -> 161. `--check` exits 1 naming chart-01 only, with **zero drift
+  problems**, which is the state it should be in.

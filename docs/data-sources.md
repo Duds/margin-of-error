@@ -56,10 +56,38 @@ Never cite, never plot.
 
 ---
 
-## Recording a figure
+## Registry field contract
 
-Every dataset gets a row here with its own retrieval detail. The schema lives in
-`standards.md`.
+Every dataset gets a block here with its own retrieval detail. `tools/build.py`
+parses these blocks, so the format is load-bearing, not house style: an entry
+the parser cannot read registers nothing, and a chart citing it is refused as an
+unknown id.
+
+| Field | Required | Read by |
+|---|---|---|
+| `source_id:` | yes | the parser. **Must be the whole line** — `^source_id:[ \t]*(\S+)[ \t]*$`. A trailing parenthetical makes the line unmatched and the entry invisible. Put extra detail in `years:` or `caveats:`. |
+| `years:` | only for a `<year>` family | expands the family into concrete ids. Without it a family registers nothing. |
+| `cross_check_only:` | when yes | the publication gate. `yes` refuses a chart whose every source is so marked. |
+| `tier:`, `publisher:`, `url:`, `retrieved:`, `covers:`, `caveats:`, `transformations:`, `files:`, `finding:`, `used_by:` | prose | humans. Not parsed. |
+
+A `<year>` family is for a source repeated per election with an identical
+schema:
+
+```
+source_id:        aec-hor-<year>-fp-by-party
+years:            2004, 2007, 2010, 2013, 2016, 2019, 2022
+```
+
+registers `aec-hor-2004-fp-by-party` through `aec-hor-2022-fp-by-party`. Cite the
+expanded id on the chart, never the pattern. `test_every_ingested_aec_source_id_resolves`
+fails if `data/aec_election_results.csv` cites an id this file does not hold, so
+adding an election row means adding its years here.
+
+Every id a chart cites must appear here. The check runs twice and the second
+run is the one that matters: `unsourced_figure_problems` reads the source SVG,
+and `artefact_source_id_problems` reads the built `index.html`, because the
+build rewrites ids and can produce a citation that never existed in any source
+file. See "Check the artefact, not just the source" in `AGENTS.md`.
 
 ```
 source_id:        aec-hor-2025
@@ -146,8 +174,8 @@ finding:          ON 6.40% primary, 0 seats. The party's best federal primary
   Chart 02. Both figures come from one AEC file per election.
 
 ```
-source_id:        aec-hor-<year>-fp-by-party   (2004, 2007, 2010, 2013, 2016,
-                                               2019, 2022; 2025 above)
+source_id:        aec-hor-<year>-fp-by-party
+years:            2004, 2007, 2010, 2013, 2016, 2019, 2022
 title:            <year> federal election — House of Representatives,
                   first preferences by party
 publisher:        Australian Electoral Commission
@@ -208,6 +236,7 @@ finding:          HAN 4.34% primary, 0 of 150 seats. The AEC's own code table
 
 ```
 source_id:        aec-hor-<year>-party-rep
+years:            2001, 2004, 2007, 2010, 2013, 2016, 2019, 2022
 title:            <year> federal election — House of Representatives,
                   party representation
 publisher:        Australian Electoral Commission

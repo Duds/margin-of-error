@@ -286,7 +286,14 @@ def add_narrow_attrs(svg: str) -> str:
     # (aria-labelledby, url(#hatch-mo)) are rewritten to match. Without this,
     # aria-labelledby on the narrow chart resolves to the WIDE chart's title
     # and desc, and both charts claim the same pattern id.
-    ids = re.findall(r'id="([^"]+)"', tag + rest)
+    # Only the `id` ATTRIBUTE, never `data-source-id`. The lookbehind is doing
+    # real work: `data-source-id="roymorgan-pvi"` ends in `id="`, so a bare
+    # `id="([^"]+)"` scan collects the provenance key as though it were an
+    # element id, and the pass below appends `-narrow` to it. The page then
+    # cites `roymorgan-pvi-narrow`, an id that exists in no registry, and the
+    # unknown-id gate refuses it — so the build cannot write, which is how the
+    # committed artefact went stale without anyone being told.
+    ids = re.findall(r'(?<![-\w])id="([^"]+)"', tag + rest)
     for original in ids:
         suffixed = f"{original}-narrow"
         rest = rest.replace(f'id="{original}"', f'id="{suffixed}"')
@@ -317,6 +324,54 @@ def add_narrow_attrs(svg: str) -> str:
     tag = re.sub(r'aria-labelledby="([^"]+)"', _suffix_labelledby, tag)
 
     return tag + rest
+
+
+DRAFT_MARKER = "data-draft"
+ROBOTS_NOINDEX = '<meta name="robots" content="noindex" />'
+
+
+def draft_banner(problems: Sequence[str]) -> str:
+    """The visible notice on a page built while a publication gate is red.
+
+    A draft artefact must not be mistakable for a publishable one, by a human
+    opening the file or by a search engine finding it. So it carries a
+    `noindex`, and a banner. The banner counts the outstanding gates rather
+    than quoting them: the gate text names files and columns, which belongs in
+    a build log and not on a page a reader might screenshot.
+
+    Uses no raw hex and no prose placeholder, so it survives `validate()`
+    rather than tripping the rules it sits inside.
+    """
+    n = len(problems)
+    detail = f"{n} outstanding publication {'gate' if n == 1 else 'gates'}" if n else (
+        "no outstanding gates"
+    )
+    return (
+        f'<div class="draft-banner" {DRAFT_MARKER}="true">'
+        "<p><strong>Not for publication.</strong></p>"
+        f"<p>This page was built from data with {detail}. The figures are "
+        "current with the data in the repository, and the sourcing has not "
+        "been confirmed.</p></div>"
+    )
+
+
+def mark_draft(html: str, problems: Sequence[str]) -> str:
+    """Add the noindex and the banner to an otherwise correct page."""
+    if DRAFT_MARKER in html:
+        return html
+    out = html.replace("<head>", f"<head>\n    {ROBOTS_NOINDEX}", 1)
+    if ROBOTS_NOINDEX not in out:
+        raise SystemExit(
+            "could not add the draft noindex: the template has no <head> to "
+            "mark. A draft page that can be indexed is not a draft."
+        )
+    out = out.replace("<body>", f"<body>\n    {draft_banner(problems)}", 1)
+    if DRAFT_MARKER not in out:
+        raise SystemExit(
+            "could not add the draft banner: the template has no <body> to "
+            "mark. A draft page that looks publishable is not a draft."
+        )
+    return out
 
 
 def build(template: str) -> str:
@@ -377,6 +432,7 @@ def build(template: str) -> str:
 CROSS_CHECK_FIELD = re.compile(
     r"^source_id:\s*(?P<sid>\S+)\s*$", re.MULTILINE
 )
+YEARS_FIELD = re.compile(r"^years:[ \t]*(?P<years>[0-9, \t]+)$", re.MULTILINE)
 
 
 def _registry_entries(registry: str) -> dict[str, bool]:
@@ -386,18 +442,62 @@ def _registry_entries(registry: str) -> dict[str, bool]:
     `cross_check_only: yes` that follows each, so an id is cross-check-only
     only if its own block says so. Matching the id and the flag independently
     would let one entry's flag mark a different entry's id.
+
+    An id containing `<year>` is a FAMILY, and a family registers nothing on
+    its own: `aec-hor-<year>-fp-by-party` is not an id any chart can cite. It is
+    expanded against the block's own `years:` list, so citing
+    `aec-hor-2019-fp-by-party` resolves. Without this, seven of the nine AEC
+    elections in `data/aec_election_results.csv` are unciteable, and the only
+    reason Chart 02 passed is that it happens to cite the two years (2001 and
+    2025) that were also written up individually.
+
+    A family block with no `years:` list is a defect, not an empty set, so it
+    registers nothing and every citation against it is refused.
     """
     entries: dict[str, bool] = {}
     current: str | None = None
     for line in registry.splitlines():
-        m = CROSS_CHECK_FIELD.match(line.strip())
+        stripped = line.strip()
+        m = CROSS_CHECK_FIELD.match(stripped)
         if m:
             current = m.group("sid")
-            entries.setdefault(current, False)
+            for sid in _expand_family(current, registry):
+                entries.setdefault(sid, False)
             continue
         if current and re.match(r"^\s*cross_check_only:\s*yes\s*$", line):
-            entries[current] = True
+            for sid in _expand_family(current, registry):
+                entries[sid] = True
     return entries
+
+
+def _expand_family(sid: str, registry: str) -> list[str]:
+    """Concrete ids for a `source_id`, expanding any `<year>` family.
+
+    The year list is read from the same block, between this `source_id:` line
+    and the next, so a family cannot borrow another block's years.
+    """
+    if "<year>" not in sid:
+        return [sid]
+
+    block = _family_block(sid, registry)
+    if block is None:
+        return []
+    m = YEARS_FIELD.search(block)
+    if not m:
+        return []
+    years = [y.strip() for y in m.group("years").split(",") if y.strip()]
+    return [sid.replace("<year>", y) for y in years]
+
+
+def _family_block(sid: str, registry: str) -> str | None:
+    """The registry lines belonging to one `source_id`, up to the next one."""
+    escaped = re.escape(sid)
+    start = re.search(rf"^source_id:[ \t]*{escaped}[ \t]*$", registry, re.MULTILINE)
+    if not start:
+        return None
+    rest = registry[start.end() :]
+    nxt = re.search(r"^source_id:", rest, re.MULTILINE)
+    return rest[: nxt.start()] if nxt else rest
 
 
 def unsourced_result_problems(name: str, svg: str, registry: str) -> list[str]:
@@ -864,6 +964,9 @@ def validate(html: str, template: str) -> list[str]:
                     f'"{token}"; the chart has no accessible name'
                 )
 
+    problems.extend(duplicate_id_problems(html))
+    problems.extend(artefact_source_id_problems(html, data_sources()))
+
     # Raw hex is banned outside :root by the generative UI rules. The template
     # and stylesheet carry no hex at all, so any here came from a chart.
     for match in re.finditer(r'fill="(#[0-9a-fA-F]{3,8})"', html):
@@ -922,10 +1025,125 @@ def degenerate_band_problems(name: str, svg: str) -> list[str]:
     return problems
 
 
+def drift_problems(expected: str) -> list[str]:
+    """Compare the committed artefact with what the sources build.
+
+    `index.html` is committed, so it can be hand-edited or simply left behind
+    when a source changes. Both are the same defect: the page readers get is
+    not the page the pipeline produces.
+
+    This must be given the marked page when a gate is red, not the unmarked
+    one, because the artefact under a red gate IS the draft. Comparing against
+    the unmarked build would report drift on every commit made while the gate
+    is closed, which is the state this repository is in by design.
+
+    The old version of this check lived only in the CI workflow, in a step
+    ordered after a step that fails by design, so it never ran. It also ran
+    `build.py` with no arguments, which overwrote the file it was about to
+    compare.
+    """
+    if not OUTPUT.exists():
+        return [
+            f"{OUTPUT.relative_to(ROOT)} is missing; the committed artefact is "
+            "part of the repository, so generate it"
+        ]
+    committed = OUTPUT.read_text(encoding="utf-8")
+    if committed == expected:
+        return []
+    return [
+        f"{OUTPUT.relative_to(ROOT)} does not match its sources "
+        f"({len(committed.splitlines())} committed lines vs "
+        f"{len(expected.splitlines())} built). Run `python3 tools/build.py"
+        f"{' --draft' if DRAFT_MARKER in expected else ''}` and commit the result."
+    ]
+
+
+def artefact_source_id_problems(html: str, registry: str) -> list[str]:
+    """Refuse a built page citing a source id the registry does not hold.
+
+    The existing unknown-id check runs over the SOURCE files, where the
+    provenance is written correctly. It cannot see a defect the build itself
+    introduces, and the build rewrites ids on the narrow variant. So a page
+    could cite `roymorgan-pvi-narrow` — an id in no registry — while every
+    source file passed, and the gate would report nothing.
+
+    That is exactly how the suffixing bug hid: the transformation was wrong,
+    and the only code that looked at the wrong output was a check pointed at
+    the right input.
+    """
+    problems: list[str] = []
+    entries = _registry_entries(registry)
+    for match in SOURCE_ID_ATTR.finditer(html):
+        for sid in match.group(1).split():
+            if sid not in entries:
+                problems.append(
+                    f"built page cites source id \"{sid}\", which has no entry "
+                    f"in docs/data-sources.md. The source SVG is checked "
+                    f"separately; this is the artefact, so the build itself "
+                    f"produced an unresolvable provenance key."
+                )
+    return sorted(set(problems))
+
+
+def duplicate_id_problems(html: str) -> list[str]:
+    """Refuse a page where an id appears twice with different content.
+
+    Every chart emits its own `<pattern id="hatch-mo">`, and the build suffixes
+    only the narrow variant, so two wide charts in one page both declare
+    `hatch-mo`. A `url(#hatch-mo)` reference resolves to whichever comes first
+    in the document, so Chart 02's bands are currently painted by Chart 01's
+    pattern.
+
+    That is harmless while the patterns are identical, which they are, and
+    silently wrong the moment one generator's density is changed — the change
+    would have no effect on the page and nothing would say so. This is the same
+    shape as the narrow variant referencing the wide chart's pattern id, one
+    level up.
+
+    So the rule is: a duplicate id is refused unless every element carrying it
+    is byte-identical. Identical duplicates are inert; divergent ones are the
+    defect. Fixing the root cause properly means scoping pattern ids per chart,
+    which breaks the single `.chart-narrow .band` stylesheet rule that exists to
+    swap the fill, so that is a design decision rather than a side effect.
+    """
+    problems: list[str] = []
+    seen: dict[str, list[str]] = {}
+    for match in re.finditer(
+        r'<(?P<tag>pattern|linearGradient|radialGradient|clipPath|marker|filter)\b[^>]*\bid="(?P<sid>[^"]+)"',
+        html,
+    ):
+        name = match.group("sid")
+        end = html.find(f"</{match.group('tag')}>", match.start())
+        if end == -1:
+            continue
+        seen.setdefault(name, []).append(html[match.start() : end])
+
+    for sid, blocks in sorted(seen.items()):
+        if len(blocks) < 2:
+            continue
+        distinct = set(blocks)
+        if len(distinct) > 1:
+            problems.append(
+                f'duplicate id="{sid}" with DIFFERENT content in the page: '
+                f"{len(blocks)} elements claim it and {len(distinct)} differ. "
+                "Every url(#" + sid + ") resolves to the first, so the others "
+                "are dead. Scope the id per chart."
+            )
+    return problems
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--check", action="store_true", help="validate only, do not write"
+        "--check",
+        action="store_true",
+        help="validate the page and the committed artefact, do not write",
+    )
+    parser.add_argument(
+        "--draft",
+        action="store_true",
+        help="write the artefact even while a publication gate is red, "
+        "marked noindex and with a banner",
     )
     args = parser.parse_args()
 
@@ -947,22 +1165,76 @@ def main() -> int:
 
     problems = validate(html, template)
 
+    # The artefact a fresh build SHOULD produce, given the data state. When a
+    # gate is red the page is still built correctly and then marked, rather
+    # than not built at all.
+    #
+    # Refusing to write was the original behaviour and it is the reason the
+    # committed index.html went stale: while the gate was red the page could
+    # not be regenerated, so three fixes to the sources never reached the
+    # artefact, and nothing said so. A gate that blocks publication should not
+    # also freeze the thing under review.
+    expected = mark_draft(html, problems) if problems else html
+
+    # Re-validate the marked page. The banner must not itself trip a rule; if
+    # it did, the draft artefact would carry a defect the check never saw.
     if problems:
-        print("build failed validation:", file=sys.stderr)
-        for p in problems:
-            print(f"  - {p}", file=sys.stderr)
-        return 1
+        after = validate(expected, template)
+        if len(after) != len(problems):
+            print(
+                "error: the draft banner changed the validation result "
+                f"({len(problems)} -> {len(after)} problems), so the marked "
+                "page is not the page the gate judged.",
+                file=sys.stderr,
+            )
+            for p in after:
+                print(f"  - {p}", file=sys.stderr)
+            return 1
 
     if args.check:
-        print("check passed: template valid, charts present and accessible")
+        # Drift is checked here rather than only in the workflow, because the
+        # gate is red by design and a CI step ordered after a failing step
+        # never runs. The drift check was written, and could not fire.
+        drift = drift_problems(expected)
+        for p in problems:
+            print(f"  - gate: {p}", file=sys.stderr)
+        for p in drift:
+            print(f"  - drift: {p}", file=sys.stderr)
+        if problems or drift:
+            print(
+                f"check failed: {len(problems)} gate(s), {len(drift)} drift "
+                f"problem(s)",
+                file=sys.stderr,
+            )
+            return 1
+        print("check passed: gates clear, artefact current")
         return 0
 
-    OUTPUT.write_text(html, encoding="utf-8")
+    if problems and not args.draft:
+        print("publication gates are red:", file=sys.stderr)
+        for p in problems:
+            print(f"  - {p}", file=sys.stderr)
+        print(
+            "\nnothing written. Re-run with --draft to build the page anyway, "
+            "marked noindex and bannered, for review.",
+            file=sys.stderr,
+        )
+        return 1
+
+    OUTPUT.write_text(expected, encoding="utf-8")
     size = OUTPUT.stat().st_size
+    state = "DRAFT" if problems else "final"
     print(
-        f"wrote {OUTPUT.relative_to(ROOT)} ({size:,} bytes) from "
+        f"wrote {state} {OUTPUT.relative_to(ROOT)} ({size:,} bytes) from "
         f"{TEMPLATE.relative_to(ROOT)} + {len(placeholders)} chart(s)"
     )
+    if problems:
+        print(
+            f"NOT FOR PUBLICATION: {len(problems)} publication gate(s) still "
+            "red. See tools/build.py --check.",
+            file=sys.stderr,
+        )
+        return 1
     return 0
 
 
