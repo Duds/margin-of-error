@@ -60,25 +60,14 @@ def figure_slots() -> dict[str, str]:
     under charts/ and this script lives under tools/.
     """
     sys.path.insert(0, str(ROOT / "charts"))
-    from stats import Result, gaps, load_polls, window_mean  # noqa: E402
+    from stats import gaps, load_polls, load_results, window_mean  # noqa: E402
 
     polls = load_polls(ROOT / "data" / "polls_roymorgan_oned.csv")
-
-    results: list[Result] = []
-    with (ROOT / "data" / "roymorgan_election_results.csv").open(
-        encoding="utf-8", newline=""
-    ) as fh:
-        for row in csv.DictReader(fh):
-            results.append(
-                Result(
-                    year=int(row["election_year"]),
-                    value=float(row["primary_vote_oned_pct"]),
-                    # Still Roy Morgan's cross-check, so still unconfirmed. The
-                    # gate that refuses to publish on it is task 0006.
-                    confirmed=(row.get("requires_aec_confirmation") or "").strip()
-                    != "yes",
-                )
-            )
+    # The same call the generator makes, against the same file. Caption and
+    # figure are both computed from the AEC's record now that task 0003's
+    # series is the result axis; if these two ever read different files the
+    # page states one number while the chart beside it draws another.
+    results = load_results(ROOT / "data" / "aec_election_results.csv")
 
     gaps_ = gaps(results, polls, WINDOW)
     if not gaps_:
@@ -189,8 +178,16 @@ def unsourced_figure_problems(name: str, svg: str, registry: str) -> list[str]:
         ]
 
     if source_ids:
+        # Resolved against the parsed entries, not a substring of the raw text.
+        # The two disagree for a `<year>` family: the registry holds
+        # `aec-hor-<year>-fp-by-party` plus a `years:` list, so
+        # `aec-hor-2019-fp-by-party` is a registered id but is not a substring
+        # of the file. A substring test here refused a citation the artefact
+        # gate accepted, so the two provenance checks disagreed about the same
+        # id — and the disagreement looked like an unsourced chart.
+        entries = _registry_entries(registry)
         for sid in source_ids.group(1).split():
-            if sid not in registry:
+            if sid not in entries:
                 problems.append(
                     f'{name}: source id "{sid}" has no entry in '
                     f"docs/data-sources.md (non-negotiable 2)"
@@ -737,17 +734,15 @@ def _stated_wave_counts() -> dict[str, int]:
     read from one dict would compare a value with itself and pass on any drift.
     """
     sys.path.insert(0, str(ROOT / "charts"))
-    from stats import Result, gaps, load_polls, window_mean  # noqa: E402
+    from stats import gaps, load_polls, load_results, window_mean  # noqa: E402
 
     polls = load_polls(ROOT / "data" / "polls_roymorgan_oned.csv")
-    results = [
-        Result(
-            year=int(r["election_year"]),
-            value=float(r["primary_vote_oned_pct"]),
-            confirmed=True,
-        )
-        for r in _read_csv(ROOT / "data" / "roymorgan_election_results.csv")
-    ]
+    # Independent recomputation from the AEC series, which is what the chart
+    # draws. Recomputed here rather than read back from figure_slots() on
+    # purpose: the gate compares what the page *says* against what the
+    # arithmetic *did*. Both reading from one dict would compare a value with
+    # itself and pass on any drift.
+    results = load_results(ROOT / "data" / "aec_election_results.csv")
     out: dict[str, int] = {}
     for g in gaps(results, polls, WINDOW):
         m = window_mean(polls, g.year, WINDOW)

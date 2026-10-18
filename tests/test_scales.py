@@ -854,8 +854,34 @@ class TestChart01IsDataDriven(unittest.TestCase):
 
     def test_output_declares_its_source_and_not_placeholder(self):
         svg = self.CHART.read_text()
-        self.assertIn('data-source-id="roymorgan-pvi"', svg)
         self.assertNotIn('data-unsourced', svg)
+
+    def test_output_cites_the_poll_series_and_each_result_it_draws(self):
+        """Provenance is derived from the rows, so it cannot go stale.
+
+        Asserted against the data rather than a typed list: the chart must cite
+        Roy Morgan for the polling axis and the registry id of every election
+        whose result it plots. When task 0003 moved the result axis onto the
+        AEC's own record this citation changed from one id to three, and a test
+        pinned to the old string would have failed for the right reason.
+        """
+        import csv as _csv
+
+        root = Path(__file__).resolve().parent.parent
+        svg = self.CHART.read_text()
+        m = re.search(r'data-source-id="([^"]+)"', svg)
+        self.assertTrue(m, "the chart declares no provenance")
+        cited = set(m.group(1).split())
+        self.assertIn("roymorgan-pvi", cited)
+
+        with (root / "data" / "aec_election_results.csv").open(
+            encoding="utf-8", newline=""
+        ) as fh:
+            rows = {int(r["election_year"]): r["source_id"] for r in _csv.DictReader(fh)}
+        # 2019 and 2022 are the elections with preceding waves; 2025 is not,
+        # because the discrete polling series stops in 2022.
+        drawn = {y: sid for y, sid in rows.items() if y in (2019, 2022)}
+        self.assertEqual(cited - {"roymorgan-pvi"}, set(drawn.values()))
 
     def test_each_panel_labels_the_wave_count_it_used(self):
         """Review Focus 3: the label is bound to the arithmetic."""
@@ -1599,29 +1625,89 @@ class TestChartGateAssertions(unittest.TestCase):
         self.assertEqual(self.build.caption_count_problems(48, 48), [])
 
 
-class TestChartGateIsRedUntilAecConfirms(unittest.TestCase):
-    """The real repository must fail, and for the stated reason.
+class TestPublicationGateIsGreenAndStillFalsifiable(unittest.TestCase):
+    """Task 0003 landed on 2026-10-18, so the gate must now be clear.
 
-    This asserts the gate is closed rather than working around it. If it ever
-    goes green before task 0003, something loosened an assertion.
+    This class used to assert the opposite: that `--check` failed while
+    chart-01's result axis rested on Roy Morgan's cross-check. Its own docstring
+    said to replace it when 0003 arrived. Replacing it is not the same as
+    deleting the guard, so the assertion is inverted *and* the gate is proven to
+    still fire by mutating the citation back to a cross-check-only id in a
+    scratch copy. A gate that has only ever been seen green is indistinguishable
+    from a gate that was loosened.
     """
 
-    def test_the_build_check_fails_on_the_unconfirmed_poll_series(self):
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+
+        cls.ROOT = Path(__file__).resolve().parent.parent
+        spec = importlib.util.spec_from_file_location(
+            "build", cls.ROOT / "tools" / "build.py"
+        )
+        cls.build = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.build)
+
+    def test_the_build_check_now_passes(self):
         import subprocess
 
-        root = Path(__file__).resolve().parent.parent
         proc = subprocess.run(
             [sys.executable, "tools/build.py", "--check"],
-            cwd=root, capture_output=True, text=True,
+            cwd=self.ROOT, capture_output=True, text=True,
         )
-        self.assertNotEqual(
+        self.assertEqual(
             proc.returncode, 0,
-            "tools/build.py --check passed, but the 2019 and 2022 results are "
-            "still Roy Morgan's cross-check rather than the AEC's record. "
-            "Either task 0003 has landed and this test should be replaced, or "
-            "an assertion was loosened.",
+            "tools/build.py --check failed. If chart-01 has moved back onto a "
+            f"cross-check-only source that is a regression to fix, not a gate "
+            f"to celebrate:\n{proc.stdout}{proc.stderr}",
         )
-        self.assertIn("cross-check", (proc.stdout + proc.stderr).lower())
+
+    def test_the_gate_still_fires_on_a_cross_check_only_result_axis(self):
+        """The falsification. Revert the citation and the gate must refuse."""
+        registry = (self.ROOT / "docs" / "data-sources.md").read_text(
+            encoding="utf-8"
+        )
+        svg = '<svg data-source-id="roymorgan-pvi"></svg>'
+        problems = self.build.unsourced_result_problems(
+            "chart-01.svg", svg, registry
+        )
+        self.assertTrue(
+            problems,
+            "a chart citing only the cross-checked poll series was accepted. "
+            "The gate has been loosened rather than satisfied.",
+        )
+        self.assertIn("cross-check", problems[0].lower())
+
+    def test_citing_a_confirmed_aec_id_beside_the_poll_series_clears_it(self):
+        """The shape chart-01 now has, asserted on the real registry."""
+        registry = (self.ROOT / "docs" / "data-sources.md").read_text(
+            encoding="utf-8"
+        )
+        svg = (
+            '<svg data-source-id="roymorgan-pvi aec-hor-2019-fp-by-party '
+            'aec-hor-2022-fp-by-party"></svg>'
+        )
+        self.assertEqual(
+            self.build.unsourced_result_problems("chart-01.svg", svg, registry),
+            [],
+        )
+
+    def test_the_registry_still_marks_roymorgan_cross_check_only(self):
+        """Clearing the gate must not have involved un-marking the source.
+
+        `roymorgan-pvi` is still a cross-check for a *result*. The chart passes
+        because it now cites a source of record beside it, not because the
+        marker was removed to make the build go green.
+        """
+        registry = (self.ROOT / "docs" / "data-sources.md").read_text(
+            encoding="utf-8"
+        )
+        entries = self.build._registry_entries(registry)
+        self.assertTrue(
+            entries.get("roymorgan-pvi"),
+            "the cross-check marker was removed from roymorgan-pvi. That is "
+            "working around the gate rather than satisfying it.",
+        )
 
 
 class TestDocumentedFiguresMatchTheData(unittest.TestCase):
@@ -1967,8 +2053,13 @@ class TestDraftArtefact(unittest.TestCase):
         """
         html = self.build.build(self.template)
         problems = self.build.validate(html, self.template)
-        self.assertTrue(problems, "expected the real gate to be red")
-        marked = self.build.mark_draft(html, problems)
+        # The gate is green on the real repo since task 0003 landed, so this
+        # cannot rely on a red state to exercise the banner. It is given a
+        # synthetic problem list instead: the banner text must be inert no
+        # matter what it says, so marking a page must never change what the
+        # gate reports about it.
+        reasons = problems or ["a gate exercised only for this test"]
+        marked = self.build.mark_draft(html, reasons)
         after = self.build.validate(marked, self.template)
         self.assertEqual(
             len(after), len(problems), f"banner changed the result: {after}"

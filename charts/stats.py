@@ -46,6 +46,11 @@ class Result:
     year: int
     value: float
     confirmed: bool
+    # The registry id of the document this figure was read from. Travels with
+    # the row rather than being typed at the chart, so a chart's declared
+    # provenance cannot disagree with the data it drew the figure from. Empty
+    # for synthetic results built in tests.
+    source_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -64,6 +69,50 @@ class Gap:
     mean: float
     n_used: int
     signed_gap: float  # poll minus result; negative means polling was low
+    # Carried through from the Result so a chart's declared provenance can be
+    # derived from the rows it actually drew, rather than typed alongside them.
+    # A typed list drifts the moment an election is added or removed from the
+    # window, and the drift is a citation pointing at a figure not on the page.
+    result_source_id: str = ""
+
+
+def load_results(path: str | Path) -> list[Result]:
+    """Election results from an ingested AEC series.
+
+    The AEC's per-election first-preferences download is the source of record
+    for what the ballot produced, so every row is `confirmed`. `source_id`
+    travels with the row, which is how a chart cites exactly the elections it
+    drew rather than a list typed beside them.
+
+    A file without the AEC columns is refused rather than guessed at. The two
+    series this repository holds use different column names on purpose —
+    `primary_vote_oned_pct` is Roy Morgan's cross-check of the count,
+    `primary_vote_pct` is the AEC's record — and reading one with the other's
+    name would silently plot the wrong figure.
+    """
+    import csv
+
+    out: list[Result] = []
+    with Path(path).open(encoding="utf-8", newline="") as fh:
+        reader = csv.DictReader(fh)
+        fields = reader.fieldnames or []
+        if "primary_vote_pct" not in fields:
+            raise ValueError(
+                f"{Path(path).name} has no primary_vote_pct column; this reads "
+                f"the ingested AEC series. Columns present: {fields}. Roy "
+                f"Morgan's cross-check file uses primary_vote_oned_pct and is "
+                f"not a source of record for a result."
+            )
+        for row in reader:
+            out.append(
+                Result(
+                    year=int(row["election_year"]),
+                    value=float(row["primary_vote_pct"]),
+                    confirmed=True,
+                    source_id=(row.get("source_id") or "").strip(),
+                )
+            )
+    return out
 
 
 def load_polls(path: str | Path) -> list[Poll]:
@@ -154,8 +203,13 @@ def gaps(
     """Polling minus result, per election.
 
     An election with no preceding waves is omitted rather than drawn as zero or
-    guessed at. `confirmed` travels through so the build can refuse a chart that
-    rests on an unconfirmed result.
+    guessed at. The result's registry id travels through, so a chart can cite
+    exactly the elections it drew without a typed list to keep in sync.
+
+    `Result.confirmed` is deliberately not carried here. The publication gate
+    reads the registry, where `cross_check_only: yes` is recorded once per
+    source, rather than a flag on each row: two places to mark a source means
+    two places that can disagree, and the registry is the one a reader audits.
     """
     out: list[Gap] = []
     for r in sorted(results, key=lambda x: x.year):
@@ -169,6 +223,7 @@ def gaps(
                 mean=m.value,
                 n_used=m.n_used,
                 signed_gap=m.value - r.value,
+                result_source_id=r.source_id,
             )
         )
     return out

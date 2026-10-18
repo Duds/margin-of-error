@@ -41,15 +41,20 @@ there is no band to draw and none is imputed.
 
 - **Question it answers:** did polling overstate or understate the party's vote,
   and by how much?
-- **Data:** `data/polls_roymorgan_oned.csv` (48 waves, 2018 to 2022) and
-  `data/roymorgan_election_results.csv`.
+- **Data:** `data/polls_roymorgan_oned.csv` (48 waves, 2018 to 2022) for the
+  polling axis and `data/aec_election_results.csv` for the result axis. The
+  result axis moved off Roy Morgan's cross-check onto the AEC's own record when
+  task 0003's series was ingested; that is what clears the publication gate.
 - **Form:** two panels in one figure. Panel 1 is the finding — polling minus
   result in percentage points, from a zero rule, so the axis is centred on the
   quantity being measured. Panel 2 is the evidence — where polling sat across
   the preceding waves, as a span rather than a line, with the result marked.
-- **The finding, computed at build time:** polling ran **0.60 points high in
-  2019** and **1.29 points low in 2022**. Wrong in both directions, which is
-  what makes this an open test rather than a verdict.
+- **The finding, computed at build time:** polling ran **0.62 points high in
+  2019** and **1.25 points low in 2022**. Wrong in both directions, which is
+  what makes this an open test rather than a verdict. The figures are the AEC
+  result subtracted from the polling mean; against Roy Morgan's own cross-check
+  of the count they read 0.60 and 1.29, and the difference is the cross-check's
+  rounding, never more than 0.04 points at any election.
 - **The marker.** "N of M waves publish no margin of error, no sample size and
   no publication date," in the figure, the caption and the `desc`. It is not
   optional and not decorative. It marks the edge of what the comparison can
@@ -66,9 +71,13 @@ there is no band to draw and none is imputed.
 - **The trap:** if the y-axis starts at 3%, the difference between a 4% poll and
   a 5.5% result inflates to fill the screen. Start at zero.
 
-**Gated.** `tools/build.py --check` refuses this chart while its only source is
-`roymorgan-pvi`, which is marked `cross_check_only: yes` in the registry. It
-clears when task 0003 confirms the 2019 and 2022 results against the AEC.
+**Gated, and the gate is now clear.** `tools/build.py --check` refused this chart
+while every source it cited was marked `cross_check_only: yes` in the registry.
+The rule is "refuse only when EVERY cited id is cross-check-only", which is the
+correct reading: `roymorgan-pvi` stays marked, because it remains a source of
+record for *polling* and not for a *result*, and the chart now also cites the
+AEC id of each election whose result it draws. Task 0003's series cleared this
+on 2026-10-18.
 
 ## Chart 05 — Withdrawn
 

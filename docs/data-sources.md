@@ -192,7 +192,7 @@ caveats:          every file opens with a bracketed metadata banner line
 transformations:  TotalPercentage as published, 2dp; seats from the Elected
                   column, cross-checked against the separate party
                   representation download
-used_by:          chart-02
+used_by:          chart-01 (result axis: 2019, 2022), chart-02
 files:            data/aec/raw/house-first-prefs-by-party-<year>.csv
 finding:          Party recorded under a different name in every era. HAN in
                   2001 and 2004, ON from 2007; "Pauline Hanson's One Nation"
@@ -291,12 +291,13 @@ caveats:          **cross_check_only: yes.** A source of record for published
                   polling figures, but not for an election result. Roy Morgan
                   publishes its own cross-check of the count; it is not the
                   Australian Electoral Commission's record, so any figure
-                  presented as what the ballot produced must be confirmed
-                  against the AEC before publication. This is what keeps
-                  `tools/build.py --check` red: a chart citing only this id is
-                  refused until task 0003 confirms the results. Do not remove
-                  the marker to make the build pass — that is the gate being
-                  worked around rather than satisfied.
+                  presented as what the ballot produced must come from the AEC
+                  instead. The marker stays. Chart 01 cleared the publication
+                  gate on 2026-10-18 not by removing it but by citing the AEC
+                  id of each result beside this id for its polling axis — the
+                  gate refuses only a chart whose EVERY source is a cross-check.
+                  Do not remove the marker to make a build pass; that is the
+                  gate being worked around rather than satisfied.
 ```
 
 What the page publishes:
@@ -371,8 +372,8 @@ the saved sources in `data/aec/raw/` and the output is identical.
 |---|---|---|
 | `data/polls_roymorgan.csv` | 138 | Monthly PVI waves: field window, ALP, and the combined "Other Parties (ALL)" / "Indepen-dents (ALL)" cells. **`pvi_oned` is empty on every row by construction.** |
 | `data/polls_roymorgan_oned.csv` | 48 | **Discrete One Nation primary vote by fortnightly wave, 2018 to 2022.** Read from the second table on the same page, which carries a real One Nation column the monthly table lacks. 132 rows span 2013 to 2022; three are election results and are excluded by matching `\bElection\b`; the remainder that are blank for this party carry no figure. **This is the series every polling figure on the page is computed from.** |
-| `data/roymorgan_election_results.csv` | 10 | Discrete One Nation primary vote by federal election, 1996 to 2025. **Cross-check only; every row requires AEC confirmation.** Superseded for Chart 02 by `data/aec_election_results.csv`; retained for the 1996 row the AEC archive does not hold, and for the polling-versus-result comparison, which is cross-checked on both sides. |
-| `data/aec_election_results.csv` | 9 | **Primary vote and seats won at each federal general election, 2001 to 2025, from the AEC.** Both figures in one row, so the chart needs no cross-check. 1996 is absent: the AEC archive begins at 2001. |
+| `data/roymorgan_election_results.csv` | 10 | Discrete One Nation primary vote by federal election, 1996 to 2025. **Cross-check only; not a source of record for a result.** Superseded for both charts by `data/aec_election_results.csv` since task 0003 landed on 2026-10-18. Retained for the 1996 row the AEC archive does not hold, and as the cross-check the AEC series was measured against: the two agree to within 0.04 points at every election. |
+| `data/aec_election_results.csv` | 9 | **Primary vote and seats won at each federal general election, 2001 to 2025, from the AEC.** Both figures in one row, so the chart needs no cross-check. **Result axis of Chart 01 (2019, 2022) and both axes of Chart 02.** 1996 is absent: the AEC archive begins at 2001. |
 | `data/aec_by_election.csv` | 1 | **The Farrer 2026 by-election, kept in its own file.** A different kind of event on a different denominator, so a shared file would invite the comparison the chart must not make. Carries `plottable_on_general_election_series = no`, which the build checks. |
 
 Three fields are null on every poll row and must stay that way:

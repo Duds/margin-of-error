@@ -116,32 +116,34 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   > every chart without regenerating. The accepted cost is that `index.html`
   > becomes a generated artefact, mitigated by the template/output separation
   > now specified in the 0006 entry under NOW.
-- **0003 — Source the AEC data** — confirm the ingested series against AEC.
-  > **The series is built. What remains is confirmation, and one code change.**
+- **0003 — Source the AEC data** — **(COMPLETE 2026-10-18.)**
   > `tools/ingest_aec_seats.py` reads all nine general elections, 2001 to 2025,
   > from AEC primary sources; both axes (national primary and seats won) come
   > from `HouseFirstPrefsByPartyDownload`, and the chamber size from the party
   > representation download. Roy Morgan agrees with the AEC to within 0.04 points
   > at every one of the nine.
-  > **What --check still refuses, and why.** Chart 01's *result* axis reads
-  > `data/roymorgan_election_results.csv`, which is cross-check-only, so the gate
-  > is red by design. It clears when the AEC figures are moved onto that axis.
-  > **This is not a data edit, contrary to the spec.** The spec says "the CSV rows
-  > change, the registry gains the aec-hor-* entries, and the chart picks them up.
-  > No chart code changes." Both halves are false:
-  > 1. `charts/chart_01.py` reads columns `primary_vote_oned_pct` and
-  >    `requires_aec_confirmation`. `data/aec_election_results.csv` has
-  >    `primary_vote_pct` and **no confirmation column at all**, so pointing the
-  >    chart at it raises KeyError.
-  > 2. The registry used to hold 2004 to 2022 only as an `aec-hor-<year>-fp-by-party`
-  >    *family*, which the resolver did not expand — so seven of nine elections
-  >    were unciteable. **Fixed 2026-10-06**: families now expand against a
-  >    `years:` field, and a test asserts every id cited in
-  >    `data/aec_election_results.csv` resolves.
-  > So the remaining work is: add the AEC columns Chart 01 needs (or point it at
-  > the AEC file and rename), set `requires_aec_confirmation = no`, and mark
-  > `roymorgan-pvi` cross-check-only no longer — or keep it cross-check-only and
-  > cite the AEC id on the chart, which is the correct fix.
+  > **Closed 2026-10-18 by moving Chart 01's result axis onto `data/aec_election_results.csv`.**
+  > `stats.load_results()` now reads the AEC series and carries each row's
+  > registry `source_id` through `Gap.result_source_id`, so the chart cites the
+  > elections it actually drew rather than a typed list. `roymorgan-pvi` stays
+  > `cross_check_only: yes` — correctly, since it is a cross-check for a *result*
+  > and a source of record for *polling* — and the chart clears the gate by
+  > citing a confirmed AEC id beside it. That is the rule working as designed,
+  > not the marker being removed.
+  > **The spec's claim that no chart code would change was wrong**, and the
+  > correction is worth keeping: `charts/chart_01.py` read
+  > `primary_vote_oned_pct` and `requires_aec_confirmation`, neither of which the
+  > AEC file has, so pointing it at the AEC data raised `KeyError`. Two column
+  > names that look interchangeable are two different sources, which is why
+  > `load_results()` now refuses a file without `primary_vote_pct` by name.
+  > Also found on the way: the source-file provenance check tested
+  > `sid not in registry` as a raw substring while the artefact check used the
+  > parsed entries, so the two disagreed about family-expanded ids —
+  > `aec-hor-2019-fp-by-party` was registered and refused at the same time. Both
+  > now resolve through `_registry_entries()`.
+  > **`tools/build.py --check` exits 0 for the first time.** The gate-red test
+  > class was inverted rather than deleted, and the gate is still proven to fire
+  > by citing only the cross-checked series.
   > AEC publishes results by election, one event id per cycle. Historical series
   > must match on AEC party abbreviation per election, not the modern name, or
   > rows drop silently: HAN in 2001 and 2004, ON from 2007.
@@ -264,7 +266,7 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   > assertion and the zero-width band assertion (BACKLOG: citation resolver).
   > **0007 is now blocked on data only:** tasks 0003 and 0004 must supply the
   > polling series and the AEC results.
-  > **STATUS 2026-10-06: BUILT AND GATED. BLOCKED ON 0003 ONLY.**
+  > **STATUS 2026-10-18: BUILT, AND THE GATE IS CLEAR.**
   > Both charts are built on branch `charts-01-polling-vs-result`. The captions
   > state computed figures, not typed ones, and the build assertions refuse an
   > unsourced or mismatched figure — each one proven to fire by mutating a
@@ -274,15 +276,20 @@ Each active task has a detailed file in `_tasks/`. TASKS.md is the index.
   > committed `index.html` still carried three of them, because the gate refused
   > to write while red, so the artefact could not be regenerated at all. Fixed
   > by `--draft`, and asserted by `test_committed_artefact_matches_a_fresh_build`.
-  > **`tools/build.py --check` exits 1, by design.** It refuses `chart-01.svg`
-  > and its narrow variant because their only source, `roymorgan-pvi`, is marked
-  > `cross_check_only: yes` in the registry. A test asserts the gate is still
-  > red, so it cannot be quietly loosened. **CI stays red until 0003 confirms
-  > the 2019 and 2022 results against the AEC**, but the 161 geometry tests now
-  > run first, so a red gate no longer hides the test signal.
-  > **Chart 02 (seat efficiency) is not behind that gate.** Its figures come from
-  > the AEC's own per-election files, so it passes today and the two charts can
-  > ship independently. It is still awaiting Dale's keep-or-cut decision.
+  > **`tools/build.py --check` exits 0 since 2026-10-18.** Task 0003 closed by
+  > moving Chart 01's result axis onto the AEC series, so the chart now cites a
+  > source of record beside the cross-checked poll series and the gate passes on
+  > its own terms. `roymorgan-pvi` is still `cross_check_only: yes`, and a test
+  > asserts both halves: that the real check is green, and that the gate still
+  > refuses a chart citing only the cross-check. Publication still needs 0005,
+  > the right of reply, which is an editorial action and not a build one.
+  > **The figures moved when the axis did.** Against the AEC's record polling ran
+  > 0.62 points high in 2019 and 1.25 points low in 2022, where against Roy
+  > Morgan's cross-check of the count it read 0.60 and 1.29. The difference is
+  > the cross-check's rounding and never exceeds 0.04 points.
+  > **Chart 02 (seat efficiency) was never behind that gate.** Its figures come
+  > from the AEC's own per-election files. It is still awaiting Dale's
+  > keep-or-cut decision.
   >
   > **Task 0008 VERIFIED 2026-10-05.** Measured in a browser at 320, 640 and
   > 1280px. Four defects found, all by measuring rather than reading, and none
@@ -1222,3 +1229,49 @@ Append-only. Newest last.
 
   Suite 144 -> 161. `--check` exits 1 naming chart-01 only, with **zero drift
   problems**, which is the state it should be in.
+
+- 2026-10-18 — **Task 0003 closed. `tools/build.py --check` exits 0 for the
+  first time, and the page is no longer a draft.** Chart 01's result axis moved
+  from Roy Morgan's cross-check of the count onto the AEC's ingested series.
+  `stats.load_results()` reads `data/aec_election_results.csv`, and each row's
+  registry `source_id` travels through `Gap.result_source_id` so the chart cites
+  exactly the elections it drew. A typed citation list would have drifted the
+  moment an election entered or left the window, and the drift is a provenance
+  claim pointing at a figure that is not on the page.
+
+  `roymorgan-pvi` **stays** `cross_check_only: yes`. That is the correct reading
+  of the marker: it says Roy Morgan is not a source of record for a *result*,
+  and it remains a source of record for *polling*. The chart clears the gate by
+  citing a confirmed AEC id beside it, not by having the marker removed. A test
+  asserts both halves — the real check is green, and a chart citing only the
+  cross-check is still refused — because a gate that has only ever been seen
+  green is indistinguishable from a gate that was quietly loosened.
+
+  **Figures the reader now sees, against the AEC's record:** polling ran +0.62
+  points high in 2019 and −1.25 points low in 2022, where the cross-check read
+  +0.60 and −1.29. The direction of the finding is untouched; the shift is the
+  cross-check's rounding, and never exceeds 0.04 points at any of the nine
+  elections. The design spec is amended rather than rewritten, because a spec is
+  a dated artefact. **No `corrections.md` entry**: the spec's own rule was "AEC
+  figures differ from Roy Morgan's, AEC wins", this is that case executed, and
+  no figure was ever published — the page has been a draft throughout.
+
+  **A sixth defect, found by the gate disagreeing with itself.** The
+  source-file provenance check tested `sid not in registry` as a raw substring,
+  while the artefact check used the parsed `_registry_entries()`. For a
+  `<year>` family the two disagree: `aec-hor-2019-fp-by-party` is registered, by
+  expansion, but is not a substring of the file. So the same citation was
+  simultaneously accepted and refused, and the symptom looked like an unsourced
+  chart. Both now resolve through one parser. A guard that reimplements the
+  thing it guards is a second source of truth, and this is what two sources of
+  truth cost.
+
+  **Also found: the spec's promise that closing 0003 needed no chart code change
+  was false.** `chart_01.py` read `primary_vote_oned_pct` and
+  `requires_aec_confirmation`; the AEC file has `primary_vote_pct` and no
+  confirmation column, so pointing it at the AEC data raised `KeyError`. Two
+  column names that read alike are two different sources, which is why
+  `load_results()` now refuses a file without `primary_vote_pct` and names the
+  columns it found.
+
+  Suite 161 -> 165. The gate-red test class was inverted, not deleted.

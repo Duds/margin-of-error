@@ -40,10 +40,24 @@ from scales import (  # noqa: E402
     ticks,
     wrap_to_width,
 )
-from stats import Result, gaps, load_polls, window_mean  # noqa: E402
+from stats import (  # noqa: E402
+    Gap,
+    gaps,
+    load_polls,
+    load_results,
+    window_mean,
+)
 
 POLL_CSV = ROOT / "data" / "polls_roymorgan_oned.csv"
-RESULT_CSV = ROOT / "data" / "roymorgan_election_results.csv"
+# The result axis reads the AEC's own ingested series, not Roy Morgan's
+# cross-check of the count. This is what task 0003 asked for and it is what
+# clears the publication gate: the result figures are now a source of record.
+RESULT_CSV = ROOT / "data" / "aec_election_results.csv"
+# The poll axis stays Roy Morgan's: it is the only house with a discrete One
+# Nation series, which is what task 0004 established. The registry marks it
+# cross_check_only for *results*, not for polling, so citing it here beside a
+# confirmed AEC result id is the correct provenance and clears the gate.
+POLL_SOURCE_ID = "roymorgan-pvi"
 WINDOW = 12
 
 # Two viewports from one generator, unchanged from task 0006. A 1072-unit chart
@@ -68,23 +82,22 @@ SPAN_PANEL_TOP = 0.56
 SPAN_PANEL_BOTTOM = 0.86
 
 
-def load_results() -> list[Result]:
-    """Election results, marked unconfirmed.
+def result_source_ids(gaps_: list[Gap]) -> list[str]:
+    """The registry ids for exactly the elections this figure draws.
 
-    Every figure here is currently Roy Morgan's cross-check, not the AEC's
-    record, so `confirmed` is False and tools/build.py refuses to publish a
-    chart resting on it until task 0003 confirms. That refusal is the gate.
+    Derived from the rows, never typed. A hand-written citation list drifts the
+    moment an election enters or leaves the window, and the failure is a
+    provenance claim pointing at a figure that is not on the page.
+
+    The poll axis stays Roy Morgan's, because that is the only house with a
+    discrete party series. The registry marks `roymorgan-pvi`
+    `cross_check_only: yes` for *results*; a chart citing it alongside a
+    confirmed AEC id passes the gate, which is the correct reading of the rule
+    and is tested.
     """
-    import csv
-
-    out: list[Result] = []
-    with RESULT_CSV.open(encoding="utf-8", newline="") as fh:
-        for row in csv.DictReader(fh):
-            year = int(row["election_year"])
-            value = float(row["primary_vote_oned_pct"])
-            needs = (row.get("requires_aec_confirmation") or "").strip().lower()
-            out.append(Result(year=year, value=value, confirmed=(needs != "yes")))
-    return out
+    ids = [POLL_SOURCE_ID]
+    ids += sorted({g.result_source_id for g in gaps_ if g.result_source_id})
+    return ids
 
 
 def fmt_signed(value: float) -> str:
@@ -97,12 +110,19 @@ def fmt_signed(value: float) -> str:
 def build_panels() -> dict:
     """Every number the chart will draw, computed once from the data."""
     polls = load_polls(POLL_CSV)
-    results = load_results()
+    results = load_results(RESULT_CSV)
     gaps_ = gaps(results, polls, WINDOW)
     if not gaps_:
         raise SystemExit(
             "no election has preceding waves; the chart would assert a "
             "comparison it cannot make. Check the ingest."
+        )
+    uncited = [g.year for g in gaps_ if not g.result_source_id]
+    if uncited:
+        raise SystemExit(
+            f"elections {uncited} carry no registry source id, so the chart "
+            f"could not cite where their result figures came from. Check the "
+            f"ingest wrote a source_id column."
         )
     return {
         "waves": len(polls),
@@ -224,10 +244,16 @@ def render(viewport: str, panels: dict) -> str:
     title = 18
 
     out: list[str] = []
+    # Provenance derived from the rows drawn: the poll series plus the registry
+    # id of each election whose result appears. With the result axis on the
+    # AEC's own record, the chart cites a confirmed source of record alongside
+    # the cross-checked poll series, which is what the publication gate's rule
+    # ("refuse only when EVERY cited id is cross-check-only") is built for.
+    cited = " ".join(result_source_ids(gs))
     out.append(
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" '
         f'class="chart" role="img" aria-labelledby="chart-01-title chart-01-desc" '
-        f'data-source-id="roymorgan-pvi" '
+        f'data-source-id="{cited}" '
         f'font-family="IBM Plex Mono, ui-monospace, monospace" '
         f'style="aspect-ratio: {w} / {h}; font-variant-numeric: tabular-nums">'
     )

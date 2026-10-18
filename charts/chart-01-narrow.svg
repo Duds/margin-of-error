@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 620" class="chart" role="img" aria-labelledby="chart-01-title chart-01-desc" data-source-id="roymorgan-pvi" font-family="IBM Plex Mono, ui-monospace, monospace" style="aspect-ratio: 420 / 620; font-variant-numeric: tabular-nums">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 620" class="chart" role="img" aria-labelledby="chart-01-title chart-01-desc" data-source-id="roymorgan-pvi aec-hor-2019-fp-by-party aec-hor-2022-fp-by-party" font-family="IBM Plex Mono, ui-monospace, monospace" style="aspect-ratio: 420 / 620; font-variant-numeric: tabular-nums">
 <title id="chart-01-title">Polling against the result, One Nation primary vote, federal elections 2019 and 2022</title>
-<desc id="chart-01-desc">A two-panel chart. The upper panel shows polling minus result in percentage points for 2 federal elections, drawn from a zero rule so the axis is centred on the quantity being measured. The lower panel shows, for each election, the span of polling values published in the preceding waves as a vertical bar, the mean of those waves, and the result marked as a horizontal rule. For 2019, polling averaged 3.70 per cent across the 5 waves before the election and the party recorded 3.1 per cent, so polling overstated it by 0.60 points. For 2022, polling averaged 3.71 per cent across the 12 waves before the election and the party recorded 5 per cent, so polling understated it by 1.29 points. Based on 48 fortnightly waves published between 2018 and 2022. No wave carries a published margin of error, sample size or publication date, so no uncertainty interval is drawn and none is imputed. The span is not a time series: these are fortnightly snapshots and nothing is claimed about the values between them.</desc>
+<desc id="chart-01-desc">A two-panel chart. The upper panel shows polling minus result in percentage points for 2 federal elections, drawn from a zero rule so the axis is centred on the quantity being measured. The lower panel shows, for each election, the span of polling values published in the preceding waves as a vertical bar, the mean of those waves, and the result marked as a horizontal rule. For 2019, polling averaged 3.70 per cent across the 5 waves before the election and the party recorded 3.08 per cent, so polling overstated it by 0.62 points. For 2022, polling averaged 3.71 per cent across the 12 waves before the election and the party recorded 4.96 per cent, so polling understated it by 1.25 points. Based on 48 fortnightly waves published between 2018 and 2022. No wave carries a published margin of error, sample size or publication date, so no uncertainty interval is drawn and none is imputed. The span is not a time series: these are fortnightly snapshots and nothing is claimed about the values between them.</desc>
 <defs><pattern id="hatch-mo" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="4" stroke="currentColor" stroke-width="1" /></pattern><pattern id="hatch-mo-print" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="currentColor" stroke-width="1.6" /></pattern><marker id="result-mark" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-ink)" /></marker></defs>
 <text x="64" y="35.2" font-size="18" fill="var(--color-ink)">Polling minus result,</text>
 <text x="64" y="61.2" font-size="18" fill="var(--color-ink)">percentage points</text>
@@ -8,12 +8,12 @@
 <line x1="64" y1="112.9" x2="404" y2="112.9" stroke="var(--color-rule)" stroke-width="2" />
 <text x="54" y="116.9" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">0</text>
 <line x1="64" y1="75.2" x2="404" y2="75.2" stroke="var(--color-rule)" stroke-width="1" />
-<rect x="120.1" y="101.6" width="57.8" height="11.3" fill="var(--color-ink-muted)" />
+<rect x="120.1" y="101.2" width="57.8" height="11.7" fill="var(--color-ink-muted)" />
 <text x="149.0" y="184.60000000000002" text-anchor="middle" font-size="17" text-anchor="middle" fill="var(--color-ink)">2019</text>
-<text x="149.0" y="91.6" text-anchor="middle" font-size="19" text-anchor="middle" fill="var(--color-ink)">+0.60</text>
-<rect x="290.1" y="112.9" width="57.8" height="24.3" fill="var(--color-ink-muted)" />
+<text x="149.0" y="91.2" text-anchor="middle" font-size="19" text-anchor="middle" fill="var(--color-ink)">+0.62</text>
+<rect x="290.1" y="112.9" width="57.8" height="23.6" fill="var(--color-ink-muted)" />
 <text x="319.0" y="184.60000000000002" text-anchor="middle" font-size="17" text-anchor="middle" fill="var(--color-ink)">2022</text>
-<text x="319.0" y="157.2" text-anchor="middle" font-size="19" text-anchor="middle" fill="var(--color-ink)">−1.29</text>
+<text x="319.0" y="156.5" text-anchor="middle" font-size="19" text-anchor="middle" fill="var(--color-ink)">−1.25</text>
 <text x="64" y="214.6" font-size="18" fill="var(--color-ink)">Where polling sat before each</text>
 <text x="64" y="240.6" font-size="18" fill="var(--color-ink)">election, and what the ballot</text>
 <text x="64" y="266.6" font-size="18" fill="var(--color-ink)">gave</text>
@@ -24,14 +24,14 @@
 <text x="54" y="284.6" font-size="16" text-anchor="end" fill="var(--color-ink-muted)">10</text>
 <line x1="149.0" y1="323.6" x2="149.0" y2="314.4" stroke="var(--band-edge)" stroke-width="8" stroke-linecap="butt" opacity="0.55" />
 <line x1="149.0" y1="319.3" x2="149.0" y2="319.3" stroke="var(--color-ink)" stroke-width="1" />
-<line x1="136.0" y1="323.0" x2="162.0" y2="323.0" stroke="var(--color-ink)" stroke-width="2.5" />
+<line x1="136.0" y1="323.1" x2="162.0" y2="323.1" stroke="var(--color-ink)" stroke-width="2.5" />
 <text x="149.0" y="368" font-size="16" text-anchor="middle" fill="var(--color-ink-muted)">mean 3.70%</text>
-<text x="149.0" y="392" font-size="17" text-anchor="middle" fill="var(--color-ink)">result 3.1%</text>
+<text x="149.0" y="392" font-size="17" text-anchor="middle" fill="var(--color-ink)">result 3.08%</text>
 <line x1="319.0" y1="323.6" x2="319.0" y2="311.3" stroke="var(--band-edge)" stroke-width="8" stroke-linecap="butt" opacity="0.55" />
 <line x1="319.0" y1="319.2" x2="319.0" y2="319.2" stroke="var(--color-ink)" stroke-width="1" />
-<line x1="306.0" y1="311.3" x2="332.0" y2="311.3" stroke="var(--color-ink)" stroke-width="2.5" />
+<line x1="306.0" y1="311.5" x2="332.0" y2="311.5" stroke="var(--color-ink)" stroke-width="2.5" />
 <text x="319.0" y="368" font-size="16" text-anchor="middle" fill="var(--color-ink-muted)">mean 3.71%</text>
-<text x="319.0" y="392" font-size="17" text-anchor="middle" fill="var(--color-ink)">result 5%</text>
+<text x="319.0" y="392" font-size="17" text-anchor="middle" fill="var(--color-ink)">result 4.96%</text>
 <text x="64" y="560" font-size="16" fill="var(--color-ink-muted)">48 of 48 waves publish no margin of</text>
 <text x="64" y="582" font-size="16" fill="var(--color-ink-muted)">error, no sample size and no</text>
 <text x="64" y="604" font-size="16" fill="var(--color-ink-muted)">publication date.</text>
